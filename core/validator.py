@@ -327,10 +327,10 @@ class Validator:
                         continue
                 else:
                     # prefixed namespace call (builtins.eval) -> match only when the
-                    # last attribute is itself listed bare in the rule, so json.loads
-                    # never tail-collides with pickle.loads
+                    # namespace is builtins and the last attribute is itself listed
+                    # bare in the rule; re.compile / json.loads never match
                     bare = {c for c in rule.ast_calls if "." not in c}
-                    if full.split(".")[-1] in bare:
+                    if full.startswith("builtins.") and full.split(".")[-1] in bare:
                         found.append(self._violation(rule, node, lines, "ast"))
                         continue
 
