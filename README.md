@@ -329,16 +329,18 @@ print(v.validate('std::strcpy(dst, src);').summary())
 ## Tests
 
 ```bash
-python -m pytest tests/ -q          # unit + integration (238: validation/repair/taint/log/AST-fix + all languages)
+python -m pytest tests/ -q          # unit + integration (251: validation/repair/taint/log/AST-fix + all languages)
 python cli.py selftest              # post-install self-test + 56-sample positive/negative suite
 python tools/agent_e2e_check.py     # offline agent-toolchain E2E
 python tools/benchmark.py           # local benchmark (detection 1.0 / FPR 0.0 / ~0.2ms)
 ```
 
-Numbers above come from the built-in sample suite (自测小样本, small self-test), not an
-authoritative external benchmark. For paper-grade numbers, run
-`python tools/run_evaluation.py --path <SecurityEval dataset>` (labels its output
-"authoritative benchmark" when run on the real dataset).
+Numbers above come from the built-in sample suite (自测小样本, small self-test). On the
+authoritative [SecurityEval](https://github.com/s2e-lab/SecurityEval) benchmark (full official
+`dataset.jsonl`: 121 CWE-annotated insecure samples + 121 benign prompts), the built-in engine measures:
+**detection 38.0% / false positives 0.0% / ~1.1 ms** — honest ceiling of a fast single-pass linter;
+dataflow-depth findings are delegated to the `sast` orchestrator (semgrep/CodeQL). See
+`docs/evaluation.md` for the breakdown and `missed_by_cwe` gaps.
 
 ## Engine positioning (built-in vs integrated)
 

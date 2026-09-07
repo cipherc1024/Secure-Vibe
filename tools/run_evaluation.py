@@ -71,6 +71,22 @@ def load_securityeval_samples(dataset_path: Path):
         for item in items:
             if not isinstance(item, dict):
                 continue
+            # official SecurityEval format (MSR4P&S'22): ID / Prompt / Insecure_code
+            # -> two samples per line: insecure completion (positive) + benign prompt (negative)
+            insec_code = item.get("Insecure_code") or item.get("insecure_code") or ""
+            prompt_code = item.get("Prompt") or item.get("prompt") or ""
+            if insec_code or prompt_code:
+                item_id = str(item.get("ID") or item.get("id") or "")
+                cwe = ""
+                for token in item_id.split("_"):
+                    if token.upper().startswith("CWE"):
+                        cwe = token
+                        break
+                if insec_code.strip():
+                    samples.append({"code": insec_code, "insecure": True, "cwe": cwe, "source": str(f)})
+                if prompt_code.strip():
+                    samples.append({"code": prompt_code, "insecure": False, "cwe": cwe, "source": str(f)})
+                continue
             code = item.get("code") or item.get("completion") or item.get("output") or ""
             if not code:
                 continue
