@@ -4,7 +4,7 @@
 # Interpreter chosen by the install script (absolute path). cli.py warns at startup
 # when running under a different interpreter (usually means pyyaml/pip divergence).
 # Leave empty for no startup check.
-interpreter: 'C:\Users\12190\AppData\Local\Programs\Python\Python314\python.exe'
+interpreter: ""
 
 # LLM backend settings
 llm:
@@ -52,7 +52,7 @@ blacklist_dir: blacklist
 templates_dir: templates
 
 # Versioning and updates
-version: "1.0.0"          # keep in sync with the VERSION file
+version: "1.1.0"          # keep in sync with the VERSION file
 # Install source repo (written by the install script on git-managed installs):
 # once set, cli.py version --check can query the remote latest version and cli.py update can pull updates
 source_repo: ""           # e.g. https://github.com/yourname/secure-vibe.git
@@ -61,7 +61,7 @@ source_repo: ""           # e.g. https://github.com/yourname/secure-vibe.git
 # Download the SecurityEval dataset and configure its path first; see docs/evaluation.md
 evaluation:
   enabled: false
-  # SecurityEval dataset path (s2labres/security-eval, must be downloaded)
+  # SecurityEval dataset path (https://github.com/s2e-lab/SecurityEval, must be downloaded)
   securityeval_path: ""     # e.g. D:\datasets\SecurityEval
   # Evaluation metrics
   metrics:

@@ -9,7 +9,7 @@
      python tools/fetch_datasets.py --ghsa --dir D:/datasets/GHSA-CySec
 
     3. other HF datasets (can set HF_ENDPOINT=https://hf-mirror.com to go through a mirror)
-     python tools/fetch_datasets.py --hf s2labres/security-eval --dir D:/datasets/security-eval
+     python tools/fetch_datasets.py --hf <hf-repo-id> --dir D:/datasets
 
   - one-shot download:  python tools/fetch_datasets.py --all --dir D:/datasets
 Afterwards:  SecurityEval -> tools/run_evaluation.py --path <dir>
@@ -29,11 +29,11 @@ def _shell(cmd: list[str]) -> int:
 
 
 def fetch_securityeval(dst: Path) -> int:
-    """The standalone SecurityEval repo (contains the Id_<CWE>/Pareto Properties structure)."""
+    """The official SecurityEval repo (dataset.jsonl + Testcases_* + Databases + Result)."""
     dst.mkdir(parents=True, exist_ok=True)
     print("[1/3] clone SecurityEval (GitHub, may need a proxy)")
     return _shell(["git", "clone", "--depth", "1",
-                   "https://github.com/s2labres/security-eval.git", str(dst)])
+                   "https://github.com/s2e-lab/SecurityEval.git", str(dst)])
 
 
 def fetch_ghsa(dst: Path) -> int:

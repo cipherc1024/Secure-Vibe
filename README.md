@@ -1,17 +1,19 @@
 # Secure-Vibe — Fast security lint + engine orchestrator + commit gate
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Languages](https://img.shields.io/badge/Languages-13-green)
-![Rules](https://img.shields.io/badge/Rules-110-orange)
-![Tests](https://img.shields.io/badge/Tests-238-brightgreen)
-[![CI](https://github.com/chenguo1024/Secure-Vibe/actions/workflows/ci.yml/badge.svg)](https://github.com/chenguo1024/Secure-Vibe/actions/workflows/ci.yml)
+![Rules](https://img.shields.io/badge/Rules-97-orange)
+![Tests](https://img.shields.io/badge/Tests-255-brightgreen)
+[![Release](https://img.shields.io/github/v/release/cipherc1024/Secure-Vibe)](https://github.com/cipherc1024/Secure-Vibe/releases)
+[![CI](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml/badge.svg)](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml)
 
 A millisecond-scale security linter for AI-generated code, an orchestrator that delegates to
 real engines (built-in rules + semgrep + dependency scanners), and a commit gate
 (pre-commit hook + CI job) so insecure code is mechanically blocked, not just discouraged.
 
 - **Fast lint**: ~0.2 ms per check, zero API keys, fully offline — runs inside an agent's inner loop.
-- **Engine orchestrator**: built-in 110-rule engine + semgrep (auto-installed in CI, graceful
+- **Engine orchestrator**: built-in 97-rule engine + semgrep (auto-installed in CI, graceful
   degrade locally) + pip-audit / govulncheck / npm audit, normalized into one finding shape.
 - **Commit gate**: `cli.py precommit` hooks into git; `cli.py sast` runs as a CI job. Findings
   block the merge; skipping the hook locally does not skip CI.
@@ -22,7 +24,7 @@ real engines (built-in rules + semgrep + dependency scanners), and a commit gate
 
 ```bash
 pip install pyyaml            # the only dependency
-git clone git@github.com:chenguo1024/Secure-Vibe.git && cd Secure-Vibe
+git clone git@github.com:cipherc1024/Secure-Vibe.git && cd Secure-Vibe
 
 python cli.py selftest                                  # verify the install: {"ok": true, ...}
 python cli.py context --task "write a login endpoint" --language python   # the rules the generator will see
@@ -114,14 +116,14 @@ Three update paths, pick by release style:
 
 ```bash
 # install with -Repo / the second argument; the target directory is managed by git
-powershell -File install.ps1 -Target ~/.config/opencode/skill/secure-vibe -Repo https://github.com/chenguo1024/Secure-Vibe.git
-./install.sh ~/.config/opencode/skill/secure-vibe https://github.com/chenguo1024/Secure-Vibe.git
+powershell -File install.ps1 -Target ~/.config/opencode/skill/secure-vibe -Repo https://github.com/cipherc1024/Secure-Vibe.git
+./install.sh ~/.config/opencode/skill/secure-vibe https://github.com/cipherc1024/Secure-Vibe.git
 
 # after you publish a new version, users update with one click (equivalent to git pull --ff-only + self-test)
 python ~/.config/opencode/skill/secure-vibe/cli.py update
 
 # show the current version / compare against the remote latest version
-python cli.py version --check https://github.com/chenguo1024/Secure-Vibe
+python cli.py version --check https://github.com/cipherc1024/Secure-Vibe
 ```
 
 ## Use as a Python library (Mode B)
@@ -162,7 +164,7 @@ User Task ──> ① Context Builder ──> ② Generation (Agent LLM) ──>
 - ④ repair loop — deterministic AST-level fixes first (no LLM), then local/full LLM rewrites; up to 3 rounds
 - ⑤ logger — JSONL with secret masking; `cli.py missed` reports missed detections to drive rule iteration
 
-## Detection coverage (13 languages, 110 rules)
+## Detection coverage (13 languages, 97 rules)
 
 General rules shared across all languages: hardcoded secrets, SQL concatenation, plaintext HTTP,
 weak randomness/hashes, JWT without signature verification, disabled TLS verification, sensitive logs.
@@ -348,7 +350,7 @@ dataflow-depth findings are delegated to the `sast` orchestrator (semgrep/CodeQL
 |---|---|---|---|
 | Role | fast lint in the agent's inner loop | deep rule coverage | known-vulnerable dependencies |
 | Latency | ~0.2 ms/check | seconds | seconds |
-| Depth | line-level + Python taint, 110 rules | thousands of community rules | OSV databases |
+| Depth | line-level + Python taint, 97 rules | thousands of community rules | OSV databases |
 | Availability | zero deps beyond pyyaml | auto-installed in CI; graceful degrade locally with an install hint | detected per ecosystem, skipped honestly when absent |
 
 The built-in engine is intentionally shallow and never claims to replace the others —
