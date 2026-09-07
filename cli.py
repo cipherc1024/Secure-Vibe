@@ -133,7 +133,7 @@ except ImportError as exc:
     sys.exit(2)
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-SKILL_VERSION = "1.0.0"   # keep in sync with the VERSION file; bump on releases
+SKILL_VERSION = "1.1.0"   # keep in sync with the VERSION file; bump on releases
 
 
 def _load_config() -> dict:
