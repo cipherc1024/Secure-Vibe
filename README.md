@@ -9,7 +9,7 @@
 ![Languages](https://img.shields.io/badge/Languages-13-green)
 ![Rules](https://img.shields.io/badge/Rules-97-orange)
 ![Tests](https://img.shields.io/badge/Tests-255-brightgreen)
-[![Release](https://img.shields.io/github/v/release/cipherc1024/Secure-Vibe)](https://github.com/cipherc1024/Secure-Vibe/releases)
+[![Release](https://img.shields.io/github/v/tag/cipherc1024/Secure-Vibe)](https://github.com/cipherc1024/Secure-Vibe/releases)
 [![CI](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml/badge.svg)](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml)
 
 A millisecond-scale security linter for AI-generated code, an orchestrator that delegates to
