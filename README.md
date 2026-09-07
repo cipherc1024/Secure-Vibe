@@ -1,5 +1,9 @@
 # Secure-Vibe — Fast security lint + engine orchestrator + commit gate
 
+<div align="center">
+  <img src="post.png" alt="Secure-Vibe" />
+</div>
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Languages](https://img.shields.io/badge/Languages-13-green)
