@@ -3,54 +3,17 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Languages](https://img.shields.io/badge/Languages-13-green)
-![Rules](https://img.shields.io/badge/Rules-98-orange)
+![Rules](https://img.shields.io/badge/Rules-97-orange)
 ![Tests](https://img.shields.io/badge/Tests-255-brightgreen)
 [![Release](https://img.shields.io/github/v/release/cipherc1024/Secure-Vibe)](https://github.com/cipherc1024/Secure-Vibe/releases)
 [![CI](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml/badge.svg)](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml)
-
----
-
-> **Secure-Vibe:让 AI 写代码,也把安全检查一起跑起来**
->
-> Vibe Coding 越来越快,但安全检查往往还停留在:写完 → SAST → 发现漏洞 → 再修。
->
-> Secure-Vibe 做的事情很简单:**把安全检查放进 AI Agent 的 Coding Loop。**
->
-> ```
-> AI Generate → ~1ms Validate → Auto Repair → Pre-commit → CI / SAST
-> ```
->
-> 一条工作流,覆盖 **生成时 → 提交时 → CI** 三道防线。
->
-> 目前支持:**13 种语言 · 98 条规则 + 13 条硬黑名单 · ~1.1ms/check · 0% FP · 完全离线**
->
-> 其中,0% False Positive 来自对 SecurityEval 121 条良性样本的实测;同时我们也公开真实检测边界:
-> 121 个漏洞样本,检出 46 个,**Detection Rate = 38%**。不吹成"万能 SAST"。
->
-> Secure-Vibe 的定位很明确:并非替代 Semgrep / CodeQL,而是让常见安全问题在 AI 生成代码的**第一时间**就被发现。
->
-> 比如 Agent 刚写出 `eval(user_input)`,还没提交,就可以被拦下来。连变形写法也拦:
->
-> ```python
-> from os import system as s            # 别名导入绕过 → 拦
-> subprocess.run(["sh", "-c", cmd])     # 列表形式传 shell → 拦
-> sql = "SELECT * FROM t WHERE a=" + user_id  # SQL 拼接 → 拦
-> builtins.eval(user_input)             # 前缀命名空间绕过 → 拦
-> ```
->
-> 安装也是一行命令的事:装完 pre-commit 钩子自动就位,零 API Key、完全离线,
-> 毫秒级校验直接跑在 Agent 内环。
->
-> AI 写代码越来越快,安全检查也应当与时俱进。
-
----
 
 A millisecond-scale security linter for AI-generated code, an orchestrator that delegates to
 real engines (built-in rules + semgrep + dependency scanners), and a commit gate
 (pre-commit hook + CI job) so insecure code is mechanically blocked, not just discouraged.
 
 - **Fast lint**: ~0.2 ms per check, zero API keys, fully offline — runs inside an agent's inner loop.
-- **Engine orchestrator**: built-in 98-rule engine + semgrep (auto-installed in CI, graceful
+- **Engine orchestrator**: built-in 97-rule engine + semgrep (auto-installed in CI, graceful
   degrade locally) + pip-audit / govulncheck / npm audit, normalized into one finding shape.
 - **Commit gate**: `cli.py precommit` hooks into git; `cli.py sast` runs as a CI job. Findings
   block the merge; skipping the hook locally does not skip CI.
@@ -201,7 +164,7 @@ User Task ──> ① Context Builder ──> ② Generation (Agent LLM) ──>
 - ④ repair loop — deterministic AST-level fixes first (no LLM), then local/full LLM rewrites; up to 3 rounds
 - ⑤ logger — JSONL with secret masking; `cli.py missed` reports missed detections to drive rule iteration
 
-## Detection coverage (13 languages, 98 rules)
+## Detection coverage (13 languages, 97 rules)
 
 General rules shared across all languages: hardcoded secrets, SQL concatenation, plaintext HTTP,
 weak randomness/hashes, JWT without signature verification, disabled TLS verification, sensitive logs.
@@ -387,7 +350,7 @@ dataflow-depth findings are delegated to the `sast` orchestrator (semgrep/CodeQL
 |---|---|---|---|
 | Role | fast lint in the agent's inner loop | deep rule coverage | known-vulnerable dependencies |
 | Latency | ~0.2 ms/check | seconds | seconds |
-| Depth | line-level + Python taint, 98 rules | thousands of community rules | OSV databases |
+| Depth | line-level + Python taint, 97 rules | thousands of community rules | OSV databases |
 | Availability | zero deps beyond pyyaml | auto-installed in CI; graceful degrade locally with an install hint | detected per ecosystem, skipped honestly when absent |
 
 The built-in engine is intentionally shallow and never claims to replace the others —
