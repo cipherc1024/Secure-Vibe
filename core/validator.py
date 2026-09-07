@@ -282,6 +282,18 @@ class Validator:
         if self.taint_analysis and tree is not None:
             violations = self._merge_taint(tree, code, violations)
 
+        # cross-engine dedupe: at most one violation per (rule_id, line);
+        # AST/taint hits (appended before regex where taint did not upgrade) win
+        seen: set[tuple[str, int]] = set()
+        uniq: list[Violation] = []
+        for viol in violations:
+            key = (viol.rule_id, viol.line)
+            if key in seen:
+                continue
+            seen.add(key)
+            uniq.append(viol)
+        violations = uniq
+
         elapsed = (time.perf_counter() - t0) * 1000
         return ValidationResult(
             passed=not violations,
@@ -306,11 +318,19 @@ class Validator:
                 if full in rule.ast_calls:
                     found.append(self._violation(rule, node, lines, "ast"))
                     continue
-                # tail matching only for bare function names (from os import system; system(...) case);
-                # prefixed full paths (e.g. json.loads) must not false-positive on a tail collision with pickle.loads
+                tails = {c.split(".")[-1] for c in rule.ast_calls}
                 if "." not in full:
-                    tails = {c.split(".")[-1] for c in rule.ast_calls}
+                    # bare call (from os import system; system(...)) -> tail match against
+                    # the prefixed full paths listed in the rule
                     if full in tails:
+                        found.append(self._violation(rule, node, lines, "ast"))
+                        continue
+                else:
+                    # prefixed namespace call (builtins.eval) -> match only when the
+                    # last attribute is itself listed bare in the rule, so json.loads
+                    # never tail-collides with pickle.loads
+                    bare = {c for c in rule.ast_calls if "." not in c}
+                    if full.split(".")[-1] in bare:
                         found.append(self._violation(rule, node, lines, "ast"))
                         continue
 

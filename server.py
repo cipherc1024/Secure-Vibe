@@ -13,13 +13,15 @@ Endpoints:
 """
 from __future__ import annotations
 
+import os
+import threading
 from pathlib import Path
 from typing import Any, Optional
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from core.logger import SecureLogger
@@ -30,6 +32,18 @@ app = FastAPI(title="Secure-Vibe", version="1.0",
 
 _logger = SecureLogger()
 _cfg = load_config()
+_env_lock = threading.Lock()
+
+
+def _gate(request: Request) -> None:
+    """Reject cross-origin (DNS-rebinding) hosts and require a bearer token when configured."""
+    host = (request.headers.get("host") or "").strip().lower()
+    host = host.lstrip("[").split("]")[0].split(":")[0]
+    if host not in ("127.0.0.1", "localhost", "::1", ""):
+        raise HTTPException(status_code=403, detail="forbidden host")
+    token = os.environ.get("SECURE_VIBE_SERVER_TOKEN", "")
+    if token and request.headers.get("authorization") != f"Bearer {token}":
+        raise HTTPException(status_code=401, detail="missing or invalid token")
 
 
 class GenerateRequest(BaseModel):
@@ -57,31 +71,31 @@ def health() -> dict[str, str]:
 
 
 @app.post("/generate")
-def generate(req: GenerateRequest) -> dict[str, Any]:
+def generate(req: GenerateRequest, _guard: None = Depends(_gate)) -> dict[str, Any]:
     """Generate secure code; automatically enters the repair loop on validation failure."""
-    import os
     old = None
-    if req.backend:
-        old = os.environ.get("SECURE_VIBE_LLM_BACKEND")
-        os.environ["SECURE_VIBE_LLM_BACKEND"] = req.backend
-    try:
-        outcome = generate_secure_code(
-            task_description=req.task,
-            language=req.language,
-            framework=req.framework,
-            context=req.context,
-            logger=_logger,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # LLM backend errors, etc.
-        raise HTTPException(status_code=502, detail=f"generation failed: {exc}") from exc
-    finally:
+    with _env_lock:
         if req.backend:
-            if old is None:
-                os.environ.pop("SECURE_VIBE_LLM_BACKEND", None)
-            else:
-                os.environ["SECURE_VIBE_LLM_BACKEND"] = old
+            old = os.environ.get("SECURE_VIBE_LLM_BACKEND")
+            os.environ["SECURE_VIBE_LLM_BACKEND"] = req.backend
+        try:
+            outcome = generate_secure_code(
+                task_description=req.task,
+                language=req.language,
+                framework=req.framework,
+                context=req.context,
+                logger=_logger,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:  # LLM backend errors, etc.
+            raise HTTPException(status_code=502, detail=f"generation failed: {exc}") from exc
+        finally:
+            if req.backend:
+                if old is None:
+                    os.environ.pop("SECURE_VIBE_LLM_BACKEND", None)
+                else:
+                    os.environ["SECURE_VIBE_LLM_BACKEND"] = old
 
     return {
         "passed": outcome.passed,
@@ -96,14 +110,14 @@ def generate(req: GenerateRequest) -> dict[str, Any]:
 
 
 @app.post("/validate")
-def validate(req: ValidateRequest) -> dict[str, Any]:
+def validate(req: ValidateRequest, _guard: None = Depends(_gate)) -> dict[str, Any]:
     """Validate existing code only (no generation)."""
     result = validate_code(req.code, req.language)
     return result.to_dict()
 
 
 @app.post("/feedback")
-def feedback(req: FeedbackRequest) -> dict[str, str]:
+def feedback(req: FeedbackRequest, _guard: None = Depends(_gate)) -> dict[str, str]:
     """Missed-pattern report -> recorded to the log, to be promoted to an official rule after human review (rule-iteration loop)."""
     path = _logger.log_missed_pattern(req.pattern, note=req.note, severity=req.severity)
     return {"status": "recorded", "log": str(path)}

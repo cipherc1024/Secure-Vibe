@@ -17,6 +17,8 @@
         (?<![\w.])eval\s*\(
       - >-
         (?<![\w.])exec\s*\(
+      - >-
+        (?i)from\s+builtins\s+import\s+(eval|exec)\s+as\s+\w+
     exclude_regex: []
 
 
@@ -35,6 +37,8 @@
         (?<![\w.])os\.system\s*\(
       - >-
         (?<![\w.])os\.popen\s*\(
+      - >-
+        (?i)from\s+os\s+import\s+(system|popen)\s+as\s+\w+
     exclude_regex: []
 
 
@@ -54,6 +58,24 @@
     regex:
       - >-
         (?i)shell\s*=\s*True
+      - >-
+        (?i)shell\s*=\s*bool\s*\(
+    exclude_regex: []
+
+
+- id: PY-023
+  name: subprocess_list_form_shell
+  severity: high
+  cwe: CWE-78
+  # literal_sensitive: ["sh", "-c", ...] lives inside string contents
+  literal_sensitive: true
+  message: "subprocess list invocation passes a shell interpreter with -c (command injection risk) | subprocess 列表调用直接传入 shell 解释器并带 -c 参数（命令注入风险）"
+  fix_hint: "Never pass sh/bash/zsh as the executable with -c; run the target program directly with an argument list. | 禁止以 sh/bash/zsh 作为可执行文件配合 -c 传用户输入；直接以参数列表运行目标程序。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (?i)\[\s*["'](?:/?(?:usr/)?bin/)?(?:ba|z)?sh["']\s*,\s*["']-c["']
     exclude_regex: []
 
 
@@ -75,6 +97,8 @@
         (?<![\w.])pickle\.loads?\s*\(
       - >-
         (?<![\w.])yaml\.unsafe_load\s*\(
+      - >-
+        (?i)from\s+(pickle|marshal|dill)\s+import\s+(loads?|Unpickler)\s+as\s+\w+
     exclude_regex:
       - >-
         yaml\.load\s*\([^)]*Loader\s*=\s*yaml\.SafeLoader
@@ -185,12 +209,14 @@
   match:
     regex:
       - >-
-        (?i)(requests?\.(get|post|put|delete|head|patch)|urllib\.request\.urlopen|httpx\.(get|post|request)|aiohttp\.ClientSession\(\))\s*\([^)]*(input\s*\(|request\.(args|form|data|json|values)|params|user)
+        (?i)(requests?\.(get|post|put|delete|head|patch)|urllib\.request\.urlopen|httpx\.(get|post|request)|aiohttp\.ClientSession\(\))\s*\([^)]*(input\s*\(|request\.(args|form|data|json|values)|payload|user_input)
       - >-
-        (?i)(requests\.get|requests\.post|httpx\.get|httpx\.post|urllib\.request\.urlopen)\s*\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\)
+        (?i)(requests\.get|requests\.post|httpx\.get|httpx\.post|urllib\.request\.urlopen)\s*\(\s*(url|user_url|target_url|fetch_url|req_url|user_link|redirect_url|destination)\s*\)
     exclude_regex:
       - >-
         (https?://(?!localhost|127\.0\.0\.1)|["'][^"']*example\.com)
+      - >-
+        [^)]*["'][^"']*https?://
 
 
 - id: PY-012

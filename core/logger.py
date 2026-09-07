@@ -24,6 +24,8 @@ _SECRET_PATTERNS = [
     re.compile(r"(?i)(api[_-]?key|secret|password|token)\s*[=:]\s*[\"'][^\"']{6,}[\"']"),
     re.compile(r"(sk-[A-Za-z0-9_-]{20,})"),
     re.compile(r"(AKIA[0-9A-Z]{16})"),
+    re.compile(r"(?i)(aws[_-]?(secret[_-]?access[_-]?key|session[_-]?token))\s*[=:]\s*[\"'][^\"']{6,}[\"']"),
+    re.compile(r"(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{16,}(\.[A-Za-z0-9_-]{10,})?)"),
 ]
 
 

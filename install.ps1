@@ -24,6 +24,13 @@ if (-not $Target) {
     }
 }
 
+# Refuse dangerous targets (drive root / user profile) that Remove-Item could destroy
+$resolvedTarget = [System.IO.Path]::GetFullPath($Target).TrimEnd('\')
+if ($resolvedTarget -eq $env:SystemDrive.TrimEnd('\') -or $resolvedTarget -eq $userHome.TrimEnd('\')) {
+    Write-Error "Secure-Vibe: refusing to install into a protected path: $Target"
+    exit 1
+}
+
 # 自动寻找可用的 Python：优先探测 Python 3.8+ 且带 pip 的解释器（自检用）
 # 选定的解释器绝对路径会写入 config.yaml 的 interpreter 字段，后续 cli.py 启动时校验是否一致
 $pythonCmd = $null      # command form, e.g. "python" or "py -3"
@@ -100,7 +107,7 @@ if ($Repo) {
 # 需要复制的内容（排除日志/缓存）
 $items = @(
     "SKILL.md", "cli.py", "main.py", "config.yaml", "requirements.txt", "README.md",
-    "VERSION", "core", "rules", "blacklist", "templates", "docs"
+    "VERSION", "core", "rules", "blacklist", "templates", "docs", "hooks"
 )
 
 Write-Host "Secure-Vibe 安装器"

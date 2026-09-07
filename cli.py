@@ -377,7 +377,7 @@ def _install_hook() -> int:
     src = PROJECT_ROOT / "hooks" / "pre-commit"
     if target.exists():
         existing = target.read_text(encoding="utf-8", errors="replace")
-        if "secure-vibe" in existing or "cli.py" in existing and "precommit" in existing:
+        if "secure-vibe" in existing:
             pass   # ours: refresh
         else:
             print(json.dumps({

@@ -56,5 +56,4 @@ jobs:
           pip install pyyaml semgrep
       - name: Self-lint (builtin rules + semgrep, fail on high)
         run: |
-          python cli.py sast core --fail-on high
-          python cli.py sast tools --fail-on high
+          python cli.py sast . --fail-on high
