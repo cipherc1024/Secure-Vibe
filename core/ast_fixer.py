@@ -12,6 +12,9 @@ Deterministic fixes covered (rule_name -> rewrite):
   weak_hash                hashlib.md5/sha1 -> hashlib.sha256
   unsafe_yaml_load         yaml.load -> yaml.safe_load (Loader= args dropped)
   hardcoded_secret         simple assignment STR = "plain" -> STR = os.environ.get("STR", "")
+  subprocess_shell_true    subprocess.run("cmd str", shell=True) -> subprocess.run([parts])
+  sql_string_concat        execute("... %s" % x) -> execute("... %s", (x,))  (single %s only)
+  PY-048                   './dir/' + name -> os.path.join('./dir/', os.path.basename(name))
 
 Usage:
     from core.ast_fixer import deterministic_fix
@@ -20,6 +23,7 @@ Usage:
 from __future__ import annotations
 
 import ast
+import shlex
 from typing import Any, Optional
 
 RANDOM_FIXES = {
@@ -80,6 +84,36 @@ class _SecureTransformer(ast.NodeTransformer):
                 # safe_load takes no Loader argument - drop it
                 node.keywords = [k for k in node.keywords if k.arg and k.arg.lower() != "loader"]
                 self.applied.add("unsafe_yaml_load")
+
+        # 4) subprocess.run("cmd string", shell=True) -> subprocess.run([parts])
+        if "subprocess_shell_true" in self.rules and isinstance(node.func, ast.Attribute):
+            func = node.func
+            if (isinstance(func.value, ast.Name) and func.value.id == "subprocess"
+                    and func.attr in ("run", "call", "check_output", "check_call", "Popen")):
+                if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                    try:
+                        parts = shlex.split(node.args[0].value)
+                    except ValueError:
+                        parts = []
+                    if parts:
+                        node.args[0] = ast.List(elts=[ast.Constant(p) for p in parts], ctx=ast.Load())
+                        node.keywords = [k for k in node.keywords if k.arg != "shell"]
+                        self.applied.add("subprocess_shell_true")
+
+        # 5) cursor.execute("... %s" % x) -> cursor.execute("... %s", (x,))
+        if "sql_string_concat" in self.rules and node.args:
+            tail = self._call_tail(node.func)
+            if tail == "execute":
+                a0 = node.args[0]
+                if (isinstance(a0, ast.BinOp) and isinstance(a0.op, ast.Mod)
+                        and isinstance(a0.left, ast.Constant) and isinstance(a0.left.value, str)):
+                    sql = a0.left.value
+                    if sql.count("%s") == 1 and "%" not in sql.replace("%s", ""):
+                        value = a0.right
+                        if not isinstance(value, ast.Tuple):
+                            value = ast.Tuple(elts=[value], ctx=ast.Load())
+                        node.args = [ast.Constant(sql), value]
+                        self.applied.add("sql_string_concat")
 
         return node
 
@@ -153,6 +187,33 @@ class _SecureTransformer(ast.NodeTransformer):
         self.need_imports.add("os")
         return node
 
+    # -- tainted path concat -> os.path.join + basename --------------------------
+
+    def visit_BinOp(self, node: ast.BinOp) -> ast.AST:
+        self.generic_visit(node)
+        if self.rules & {"PY-048", "path_traversal_user_path"} and isinstance(node.op, ast.Add):
+            if (isinstance(node.left, ast.Constant) and isinstance(node.left.value, str)
+                    and "/" in node.left.value):
+                join = ast.Attribute(
+                    value=ast.Attribute(value=ast.Name("os", ast.Load()), attr="path", ctx=ast.Load()),
+                    attr="join", ctx=ast.Load())
+                basename = ast.Attribute(
+                    value=ast.Attribute(value=ast.Name("os", ast.Load()), attr="path", ctx=ast.Load()),
+                    attr="basename", ctx=ast.Load())
+                new = ast.Call(join, [node.left, ast.Call(basename, [node.right], [])], [])
+                self.applied.add("PY-048")
+                self.need_imports.add("os")
+                return ast.copy_location(new, node)
+        return node
+
+    @staticmethod
+    def _call_tail(func: ast.expr) -> Optional[str]:
+        if isinstance(func, ast.Attribute):
+            return func.attr
+        if isinstance(func, ast.Name):
+            return func.id
+        return None
+
 
 def _insert_imports(code: str, transformer: _SecureTransformer) -> str:
     """Insert missing imports at the module head (after the docstring)."""
@@ -186,7 +247,9 @@ def deterministic_fix(code: str, violations: list[Any]) -> tuple[str, list[str]]
     from core.validator import Violation
 
     rules = {v.rule_name for v in violations if isinstance(v, Violation)}
-    fixable = rules & {"insecure_random", "weak_hash", "unsafe_yaml_load", "hardcoded_secret"}
+    fixable = rules & {"insecure_random", "weak_hash", "unsafe_yaml_load", "hardcoded_secret",
+                       "subprocess_shell_true", "sql_string_concat", "PY-048",
+                       "path_traversal_user_path"}
     if not fixable:
         return code, []
 

@@ -91,6 +91,10 @@
       - pickle.load
       - pickle.Unpickler
       - yaml.unsafe_load
+      - cPickle.loads
+      - cPickle.load
+      - _pickle.loads
+      - _pickle.load
       - dill.loads
     regex:
       - >-
@@ -657,3 +661,39 @@
     regex:
       - >-
         (?i)\b\w*(key|token|secret|password)\w*\s*=\s*['"][A-Za-z0-9+/=_-]{32,}['"]
+- id: PY-051
+  name: traceback_info_leak
+  severity: medium
+  cwe: CWE-209
+  message: "Exception traceback leaked to client (information disclosure) | 异常堆栈信息泄露给客户端"
+  fix_hint: "Log the traceback server-side and return a generic error message to the client. | 在服务端记录日志，仅向客户端返回通用错误信息。"
+  template: ""
+  match:
+    regex:
+      - >-
+        traceback\.(format_exc|print_exc)\s*\(
+
+- id: PY-052
+  name: nosql_filter_injection
+  severity: high
+  cwe: CWE-943
+  message: "NoSQL filter expression built by string concatenation | NoSQL 过滤表达式由字符串拼接构造"
+  fix_hint: "Pass user input via ExpressionAttributeValues instead of concatenating it into the filter. | 用 ExpressionAttributeValues 传递用户输入，不要拼接字符串。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (FilterExpression|KeyConditionExpression|UpdateExpression)\s*=\s*[^,)\n]*\+
+
+- id: PY-053
+  name: hardcoded_db_credentials
+  severity: medium
+  cwe: CWE-522
+  message: "Hardcoded database credentials in connection string (insufficiently protected credentials) | 数据库连接字符串中硬编码凭据"
+  fix_hint: "Load DB credentials from environment variables or a secrets manager, never inline them in connect(). | 从环境变量或密钥管理服务读取数据库凭据，不要写在 connect() 里。"
+  template: ""
+  literal_sensitive: true
+  match:
+    regex:
+      - >-
+        (?i)\bconnect\s*\([^)]*\buser\s*=\s*["'][^"']+["'][^)]*\b(passwd|password|pwd)\s*=\s*["']

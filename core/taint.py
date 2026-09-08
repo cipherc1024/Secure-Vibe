@@ -157,6 +157,16 @@ def _is_sink_node(node: ast.AST) -> Optional[str]:
 # propagation: determine whether a node is tainted
 # ---------------------------------------------------------------------------
 
+# functions that neutralize untrusted data; taint is killed at these calls
+SANITIZERS = frozenset({
+    "html.escape", "cgi.escape", "markupsafe.escape", "jinja2.escape",
+    "shlex.quote", "pipes.quote", "urllib.parse.quote",
+    "urllib.parse.quote_plus", "re.escape", "secure_filename",
+    "werkzeug.utils.secure_filename",
+})
+_SANITIZER_TAILS = frozenset(s.split(".")[-1] for s in SANITIZERS)
+_SAFE_COERCIONS = frozenset({"int", "float", "bool"})
+
 class _TaintEngine:
     def __init__(self, tree: ast.AST):
         self.tainted: set[int] = set()
@@ -224,8 +234,17 @@ class _TaintEngine:
             return self._first_child_origin(node)
         # calls: argument taint passes through (over-approx); sinks handled in find_sinks
         if isinstance(node, ast.Call):
+            fn = _func_name(node.func)
+            if fn:
+                tail = fn.split(".")[-1]
+                if fn in SANITIZERS or tail in _SANITIZER_TAILS or tail in _SAFE_COERCIONS:
+                    return None  # sanitized: taint is killed at this boundary
             origin = self._first_child_origin(node)
             return origin
+        # attribute / subscript access: p.filename / d['key'] inherit taint
+        # from their base object (over-approximation)
+        if isinstance(node, (ast.Attribute, ast.Subscript)):
+            return self._expr_origin(node.value)
         return None
 
     def _first_child_origin(self, node: ast.AST) -> Optional[str]:

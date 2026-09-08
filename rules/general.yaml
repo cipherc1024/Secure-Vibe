@@ -118,6 +118,8 @@
     exclude_regex:
       - >-
         execute\s*\([^,)]*,\s*[\[\(]?\s*\w+\s*[\]\)]?\s*\)
+      - >-
+        execute\s*\([^,)]*,\s*[\[\(]
 
 
 - id: GEN-006
