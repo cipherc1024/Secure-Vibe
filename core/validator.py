@@ -172,6 +172,9 @@ class Rule:
       exclude_regex: [...]   #   exclusion patterns (matches inside comments/docstrings do not count)
       literal_sensitive: bool  # rule needs string CONTENTS (e.g. secret charsets);
                                # matched against the raw line instead of the stripped code shape
+      require_regex: [...]   #   optional: every pattern here must match somewhere in the
+                             #   whole file, or the rule does not fire (guards against
+                             #   docstrings that embed a vulnerable example verbatim)
     """
 
     def __init__(self, data: dict[str, Any]):
@@ -191,6 +194,9 @@ class Rule:
         self.regex_flags = flags_map.get(flag_char, 0)
         self.patterns: list[re.Pattern[str]] = [
             re.compile(p, self.regex_flags) for p in match.get("regex", [])
+        ]
+        self.require: list[re.Pattern[str]] = [
+            re.compile(p, self.regex_flags) for p in match.get("require_regex", [])
         ]
         self.exclude: list[re.Pattern[str]] = [
             re.compile(p) for p in match.get("exclude_regex", [])
@@ -387,6 +393,11 @@ class Validator:
         use_strip = stripped is not None and not rule.literal_sensitive
         src_lines = (stripped if use_strip else code).splitlines()
         raw_lines = code.splitlines()
+        # cross-line requirement source: stripped shape (string contents blanked) so a
+        # verbatim example inside a docstring does not satisfy it
+        whole = "\n".join(src_lines)
+        if rule.require and not all(p.search(whole) for p in rule.require):
+            return []
         found: list[Violation] = []
         for lineno, text in enumerate(src_lines, 1):
             stripped_line = text.strip()

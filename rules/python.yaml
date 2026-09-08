@@ -411,3 +411,249 @@
       - >-
         maxlen|\(.{0,
 
+- id: PY-033
+  name: weak_cipher
+  severity: medium
+  cwe: CWE-327
+  literal_sensitive: true
+  message: "Weak cipher/hash primitive used (DES/RC4/MD5/SHA1 are broken) | 使用了弱加密/哈希原语（DES/RC4/MD5/SHA1 已被破解）"
+  fix_hint: "Use AES-GCM/ChaCha20-Poly1305 for encryption and SHA-256+ (HMAC) or a KDF for hashing. | 加密改用 AES-GCM/ChaCha20-Poly1305，哈希改用 SHA-256+（HMAC）或专用 KDF。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (?i)\b(DES|Blowfish|RC4|ARC4|IDEA)\.new\s*\(
+      - >-
+        (?i)\bhashlib\.(md5|sha1)\s*\(
+      - >-
+        (?i)\bhashlib\.new\s*\(\s*['"](md5|sha1|des)['"]
+    exclude_regex: []
+
+- id: PY-034
+  name: weak_password_hash
+  severity: medium
+  cwe: CWE-916
+  message: "Password hashed with a plain/fast hash (no work factor) | 密码使用了普通快速哈希（无工作因子）"
+  fix_hint: "Use bcrypt/scrypt/argon2 or hashlib.pbkdf2_hmac with a per-user random salt and >= 100k iterations. | 改用 bcrypt/scrypt/argon2，或 hashlib.pbkdf2_hmac 配合每用户随机盐与 >=10 万次迭代。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (?i)\bhashlib\.(md5|sha1|sha256)\s*\(\s*(password|passwd|pwd|user_?password)
+      - >-
+        (?i)\bhashlib\.(md5|sha1|sha256)\([^)]*\b(password|passwd|pwd)\s*\+
+    exclude_regex: []
+
+- id: PY-035
+  name: deprecated_ssl
+  severity: medium
+  cwe: CWE-327
+  message: "Deprecated/insecure SSL API or protocol version | 使用了弃用/不安全的 SSL API 或协议版本"
+  fix_hint: "Use ssl.create_default_context() (certificate + hostname verification on); drop SSLv3/TLSv1(.1). | 改用 ssl.create_default_context()（开启证书与主机名校验），弃用 SSLv3/TLSv1(.1)。"
+  template: ""
+  match:
+    regex:
+      - >-
+        \bssl\.wrap_socket\s*\(
+      - >-
+        (?i)PROTOCOL_SSLv[23]\b|SSLv3_METHOD\b|TLSv1_METHOD\b|TLSv1_1_METHOD\b
+    exclude_regex: []
+
+- id: PY-036
+  name: weak_key_size
+  severity: medium
+  cwe: CWE-326
+  message: "Cryptographic key size too small (1024-bit RSA/DSA is deprecated) | 密钥长度过短（1024 位 RSA/DSA 已弃用）"
+  fix_hint: "Use RSA >= 3072 bits (or ECDSA P-256/Ed25519); DSA is deprecated — migrate to Ed25519. | RSA 用 >=3072 位（或 ECDSA P-256/Ed25519）；DSA 已弃用，迁移到 Ed25519。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (?i)\b(RSA|DSA|ECDSA|ElGamal)\.generate\s*\(\s*(512|768|1024)\s*\)
+    exclude_regex: []
+
+- id: PY-037
+  name: cleartext_protocol
+  severity: medium
+  cwe: CWE-319
+  message: "Cleartext protocol used (FTP/Telnet transmit credentials unencrypted) | 使用明文协议（FTP/Telnet 不加密传输凭据）"
+  fix_hint: "Use SFTP/FTPS/SSH instead of FTP/Telnet for anything credential-bearing. | 涉及凭据的传输改用 SFTP/FTPS/SSH，禁用 FTP/Telnet。"
+  template: ""
+  match:
+    regex:
+      - >-
+        \bftplib\.FTP\s*\(
+      - >-
+        \btelnetlib\.Telnet\s*\(
+    exclude_regex: []
+
+- id: PY-038
+  name: unsafe_tar_extract
+  severity: medium
+  cwe: CWE-22
+  message: "Tar entry extracted without path validation (Zip-Slip path traversal) | 未校验路径直接解压 tar 条目（Zip-Slip 路径穿越）"
+  fix_hint: "Check each member's resolved path stays inside the target directory before extraction (or use safe_extract). | 解压前校验每个成员的规范化路径仍在目标目录内（或使用安全解压函数）。"
+  template: ""
+  match:
+    regex:
+      - >-
+        \btar\.extract(?:_all)?\s*\(
+      - >-
+        \bextractall\s*\(
+    exclude_regex: []
+
+- id: PY-039
+  name: hardcoded_db_credentials
+  severity: medium
+  cwe: CWE-521
+  literal_sensitive: true
+  message: "Empty/weak default database password in configuration | 数据库配置中存在空密码/弱默认密码"
+  fix_hint: "Load DB credentials from environment/secret manager; never ship empty or default passwords. | 数据库凭据从环境变量/密钥管理读取，禁止空密码或默认密码入库。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (?i)['"]PASSWORD['"]\s*:\s*['"]['"]
+      - >-
+        (?i)['"]PASSWORD['"]\s*:\s*['"](123|1234|12345|123456|admin|root|password|postgres|mysql|test)['"]
+      - >-
+        (?i)://[\w.-]+:\s*@
+    exclude_regex: []
+
+- id: PY-040
+  name: hardcoded_credential_compare
+  severity: high
+  cwe: CWE-798
+  literal_sensitive: true
+  message: "Credential compared against a hardcoded value (backdoor password) | 凭据与硬编码值比较（后门口令）"
+  fix_hint: "Verify credentials against a hashed store (constant-time compare); never hardcode passwords/tokens. | 凭据必须对哈希存储做恒时比较，禁止硬编码口令/令牌。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (?i)\b(password|passwd|pwd|token)\s*==\s*['"][^'"]+['"]
+    exclude_regex: []
+
+- id: PY-041
+  name: pickle_reduce_gadget
+  severity: high
+  cwe: CWE-502
+  message: "__reduce__ gadget returns an executable (pickle RCE payload) | __reduce__ 魔术方法返回可执行对象（pickle RCE 载荷）"
+  fix_hint: "Never define __reduce__ that returns exec/eval/system callables; avoid pickle for untrusted data entirely. | 禁止定义返回 exec/eval/系统调用可调用对象的 __reduce__；不可信数据完全避免 pickle。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (?i)^\s*return\s+(exec|eval|os\.system|subprocess\.\w+)\s*,
+    require_regex:
+      - >-
+        \bpickle\.(dumps|loads|dump|load)\s*\(
+    exclude_regex: []
+
+- id: PY-042
+  name: xss_regex_sanitize
+  severity: medium
+  cwe: CWE-116
+  literal_sensitive: true
+  message: "HTML tag stripping via regex (bypassable, not a sanitizer) | 用正则剥离 HTML 标签（可被绕过，不是消毒器）"
+  fix_hint: "Use a real sanitizer (bleach/nh3) or framework autoescaping instead of regex tag removal. | 改用真正的消毒器（bleach/nh3）或框架自动转义，不要用正则删标签。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (?i)re\.sub\w*\s*\(\s*r?['"][^'"]*<script
+      - >-
+        (?i)\.(replace|sub)\w*\(\s*['"]<script
+    exclude_regex: []
+
+- id: PY-043
+  name: hardcoded_iv
+  severity: medium
+  cwe: CWE-1204
+  literal_sensitive: true
+  message: "Hardcoded/constant IV or salt (breaks crypto semantic security) | 硬编码/固定 IV（破坏 CBC 语义安全）"
+  fix_hint: "Generate a random IV per message (os.urandom/secrets) and transmit it alongside the ciphertext. | 每条消息用 os.urandom/secrets 生成随机 IV，与密文一同传输。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (?i)\bstatic_?vector\s*=\s*b['"]
+      - >-
+        (?i)\b(iv|nonce)\s*=\s*b['"][^'"]*['"]
+      - >-
+        (?i)pbkdf2\w*\s*\([^)]*b['"][^'"]{6,}['"]
+    exclude_regex:
+      - >-
+        urandom|secrets\.
+
+- id: PY-044
+  name: deprecated_api_time_clock
+  severity: low
+  cwe: CWE-477
+  message: "time.clock() is removed since Python 3.8 (deprecated API) | time.clock() 自 Python 3.8 已移除（弃用 API）"
+  fix_hint: "Use time.perf_counter() or time.process_time(). | 改用 time.perf_counter() 或 time.process_time()。"
+  template: ""
+  match:
+    regex:
+      - >-
+        \btime\.clock\s*\(
+    exclude_regex: []
+
+- id: PY-045
+  name: js_style_regex_slash
+  severity: low
+  cwe: CWE-730
+  literal_sensitive: true
+  message: "Regex literal wrapped in slashes (JS style — matches literal / characters, not a regex) | 正则字面量用斜杠包裹（JS 风格——匹配的是字面 / 字符而非正则）"
+  fix_hint: "Remove the enclosing slashes; Python regexes take the pattern string directly. | 去掉包裹的斜杠；Python 正则直接接收模式字符串。"
+  template: ""
+  match:
+    regex:
+      - >-
+        =\s*r['"]/[^'"\n]*\$[^'"\n]*/['"]
+    exclude_regex: []
+
+- id: PY-046
+  name: jwt_no_signature_verify
+  severity: medium
+  cwe: CWE-347
+  message: "JWT processed/decoded without signature verification | JWT 处理/解码时未校验签名"
+  fix_hint: "Verify the signature (python_jwt.verify_jwt / jwt.decode with algorithms allowlist) before trusting claims. | 先验证签名（python_jwt.verify_jwt 或 jwt.decode 并限定算法白名单）再信任声明。"
+  template: ""
+  match:
+    regex:
+      - >-
+        \bprocess_jwt\s*\(
+      - >-
+        (?i)jwt\.decode\s*\([^)]*verify\s*=\s*False
+    exclude_regex: []
+
+- id: PY-049
+  name: xxe_parse
+  severity: medium
+  cwe: CWE-611
+  message: "XML parsing without disabling external entities (XXE) | XML 解析未禁用外部实体（XXE）"
+  fix_hint: "Use defusedxml or disable DTD/external entities (resolve_entities=False, no_network=True). | 使用 defusedxml 或禁用 DTD/外部实体（resolve_entities=False, no_network=True）。"
+  template: ""
+  match:
+    regex:
+      - >-
+        \.fromstring\s*\(
+      - >-
+        \bminidom\.parse(?:String)?\s*\(
+  exclude_regex:
+    - >-
+      defusedxml|resolve_entities\s*=\s*False|forbid_dtd
+
+- id: PY-050
+  name: hardcoded_api_key
+  severity: medium
+  cwe: CWE-321
+  literal_sensitive: true
+  message: "Hardcoded API key/secret (long high-entropy literal) | 硬编码 API 密钥/机密（长随机字面量）"
+  fix_hint: "Load keys from environment variables or a secret manager; rotate any exposed keys. | 从环境变量或密钥管理服务加载密钥；已泄露密钥立即轮换。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (?i)\b\w*(key|token|secret|password)\w*\s*=\s*['"][A-Za-z0-9+/=_-]{32,}['"]
