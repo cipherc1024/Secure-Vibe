@@ -4,6 +4,61 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] - 2026-09-09
+
+Security-focused engine expansion: SecurityEval detection **38.0% → 81.8%** at
+**0% false positives**. Rules count **97 → 131**.
+
+### Added
+
+- Taint engine expansion (`core/taint.py`): new confirmed sinks — open redirect,
+  reflected response writes, header injection (including Django-style
+  `response['Location'] = tainted` assignment), log injection, ReDoS `re.compile`,
+  XPath/LDAP/NoSQL filter calls, file read/write, XML parse; new taint sources for
+  `request.args['x']` subscript and direct-call forms; Attribute/Subscript
+  propagation (`p.filename` inherits the base object's taint — recovers the
+  CWE-434 file-upload misses).
+- Sanitizer modeling (`core/taint.py`): taint is killed at `html.escape`,
+  `shlex.quote`, `secure_filename`, `urllib.parse.quote`, `re.escape` and
+  int/float/bool coercion boundaries — fewer false positives on sanitized code.
+- 21 new rules (`rules/python.yaml`): PY-033–PY-053 — weak crypto, unsafe tar
+  extract, JWT verify, XXE parse (defusedxml-aware), hardcoded credentials /
+  IV / salt / API keys / DB credentials, traceback info leak (CWE-209),
+  NoSQL filter-expression concatenation (CWE-943); PY-004 now covers
+  `cPickle`/`_pickle` variants. Alias imports (`from X import Y as Z`),
+  `shell=bool()` calls, list-form `sh -c` subprocesses and SQL quote-concat are
+  now detected.
+- 3 new deterministic fixes (`core/ast_fixer.py`): `shell=True` string command →
+  argument list, `%s`-concat SQL → parameterized query, tainted path concat →
+  `os.path.join` + `os.path.basename` (7 total, all re-validated after applying).
+- Server hardening (`server.py`): rejects non-loopback Host headers
+  (DNS-rebinding guard), optional bearer token (`SECURE_VIBE_SERVER_TOKEN`),
+  serialized backend env override.
+- Installer safety (`install.sh` / `install.ps1`): refuse protected targets
+  (drive root / home directory) before any destructive cleanup; copy `hooks/`
+  so the pre-commit gate works on installed copies.
+- Log masking (`core/logger.py`): AWS secret/session keys and JWTs are masked in
+  JSONL audit logs.
+
+### Changed
+
+- GEN-005 no longer flags parameterized `execute(sql, params)` forms — the
+  exclusion list recognizes tuple/list arguments, so safe SQL is not reported.
+- Cross-engine dedupe in the validator: shallow ast/regex hits on the same
+  (rule_id, line) yield to taint conclusions.
+- `require_regex` rule field: regex rules can require a second pattern
+  (for docstring-embedded samples).
+- README/docs updated with the measured numbers and an honest boundary note
+  (taint sanitizers are a fixed allowlist, not proven).
+
+### Measured
+
+- SecurityEval (MSR4P&S'22, full official dataset): **detection 81.8% (99/121) /
+  false positives 0.0% / ~1.4 ms** (baseline at v1.1.0: 38.0%); the remaining
+  ~20 misses are interprocedural/semantic CWEs (SSRF via function parameters,
+  missing-auth logic) delegated to the `sast` orchestrator (semgrep/CodeQL).
+- Test suite: 255 passing.
+
 ## [1.1.0] - 2026-09-07
 
 Repositioned from "secure-by-generation guarantee" to a honest **fast lint + engine
@@ -67,5 +122,6 @@ analysis / runtime protection / ops).
   with secret masking, bilingual rule content (EN/ZH), cross-agent installers
   (install.sh / install.ps1), CI test matrix, and the MIT-licensed docs set.
 
+[1.1.1]: https://github.com/cipherc1024/Secure-Vibe/releases/tag/v1.1.1
 [1.1.0]: https://github.com/cipherc1024/Secure-Vibe/releases/tag/v1.1.0
 [1.0.0]: https://github.com/cipherc1024/Secure-Vibe/releases/tag/v1.0.0

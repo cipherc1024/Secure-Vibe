@@ -14,8 +14,8 @@
           content="default-src 'self'; script-src 'self' https://cdn.example.com">
     <title>安全页面示例</title>
     <!-- 外链脚本带 SRI 完整性校验（CWE-353 防护） -->
-    <script src="https://cdn.example.com/lib/app.min.js"
-            integrity="sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
+    <script integrity="sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
+            src="https://cdn.example.com/lib/app.min.js"
             crossorigin="anonymous"></script>
 </head>
 <body>

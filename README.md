@@ -1,11 +1,15 @@
 # Secure-Vibe — Fast security lint + engine orchestrator + commit gate
 
+<div align="center">
+  <img src="post.png" alt="Secure-Vibe" />
+</div>
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Languages](https://img.shields.io/badge/Languages-13-green)
-![Rules](https://img.shields.io/badge/Rules-97-orange)
+![Rules](https://img.shields.io/badge/Rules-131-orange)
 ![Tests](https://img.shields.io/badge/Tests-255-brightgreen)
-[![Release](https://img.shields.io/github/v/release/cipherc1024/Secure-Vibe)](https://github.com/cipherc1024/Secure-Vibe/releases)
+[![Release](https://img.shields.io/github/v/tag/cipherc1024/Secure-Vibe)](https://github.com/cipherc1024/Secure-Vibe/releases)
 [![CI](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml/badge.svg)](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml)
 
 A millisecond-scale security linter for AI-generated code, an orchestrator that delegates to
@@ -164,7 +168,7 @@ User Task ──> ① Context Builder ──> ② Generation (Agent LLM) ──>
 - ④ repair loop — deterministic AST-level fixes first (no LLM), then local/full LLM rewrites; up to 3 rounds
 - ⑤ logger — JSONL with secret masking; `cli.py missed` reports missed detections to drive rule iteration
 
-## Detection coverage (13 languages, 97 rules)
+## Detection coverage (13 languages, 131 rules)
 
 General rules shared across all languages: hardcoded secrets, SQL concatenation, plaintext HTTP,
 weak randomness/hashes, JWT without signature verification, disabled TLS verification, sensitive logs.
@@ -305,17 +309,19 @@ print(v.validate('std::strcpy(dst, src);').summary())
 
 ## Trust & guarantees
 
-- **Deterministic fixes are mechanically constrained**: the four AST rewrites (random→secrets,
-  md5/sha1→sha256, yaml.load→safe_load, plaintext constant→os.environ.get) never go through an LLM
-  and are re-validated after applying. Optionally, post-repair regression verification runs the
-  project's own tests; a fix that breaks behavior is reverted.
+- **Deterministic fixes are mechanically constrained**: the seven AST rewrites (random→secrets,
+  md5/sha1→sha256, yaml.load→safe_load, plaintext constant→os.environ.get, shell=True string
+  command→argument list, `%s`-concat SQL→parameterized query, path concat→os.path.join+basename)
+  never go through an LLM and are re-validated after applying. Optionally, post-repair regression
+  verification runs the project's own tests; a fix that breaks behavior is reverted.
 - **Everything is auditable**: the full system prompt is built by `cli.py context` and logged; every
   repair round is recorded in JSONL with the violation list, the code, the action taken, and the
   verdict. When the repair loop does not converge, a full human-review ticket is written
   (context, per-violation analysis, alternatives) instead of a bare failure flag.
 - **Secrets are masked in logs** on a best-effort basis (`logging.mask_secrets`).
 - Honest boundary: this is a **fast linter + orchestrator + commit gate, not a security proof**.
-  It cannot reason across modules, model sanitizers, or protect anything at runtime. Enforcement
+  It cannot reason across modules or function boundaries, and taint sanitizers are modeled only as
+  a fixed allowlist (html.escape, shlex.quote, parameterized coercion...), not proven; enforcement
   is mechanical (the hook and the CI job), but the checks themselves are shallow; deep guarantees
   come from the integrated engines (semgrep, dependency scanners), not from this tool alone.
 
@@ -331,7 +337,7 @@ print(v.validate('std::strcpy(dst, src);').summary())
 ## Tests
 
 ```bash
-python -m pytest tests/ -q          # unit + integration (251: validation/repair/taint/log/AST-fix + all languages)
+python -m pytest tests/ -q          # unit + integration (255: validation/repair/taint/log/AST-fix + all languages)
 python cli.py selftest              # post-install self-test + 56-sample positive/negative suite
 python tools/agent_e2e_check.py     # offline agent-toolchain E2E
 python tools/benchmark.py           # local benchmark (detection 1.0 / FPR 0.0 / ~0.2ms)
@@ -340,8 +346,10 @@ python tools/benchmark.py           # local benchmark (detection 1.0 / FPR 0.0 /
 Numbers above come from the built-in sample suite (自测小样本, small self-test). On the
 authoritative [SecurityEval](https://github.com/s2e-lab/SecurityEval) benchmark (full official
 `dataset.jsonl`: 121 CWE-annotated insecure samples + 121 benign prompts), the built-in engine measures:
-**detection 38.0% / false positives 0.0% / ~1.1 ms** — honest ceiling of a fast single-pass linter;
-dataflow-depth findings are delegated to the `sast` orchestrator (semgrep/CodeQL). See
+**detection 81.8% / false positives 0.0% / ~1.4 ms** (baseline 38.8% before the taint-engine expansion;
+remaining gaps are semantic CWEs — missing-auth/access-control logic and cross-function input
+flow — outside a line-level linter's scope); residual dataflow-depth findings are delegated to
+the `sast` orchestrator (semgrep/CodeQL). See
 `docs/evaluation.md` for the breakdown and `missed_by_cwe` gaps.
 
 ## Engine positioning (built-in vs integrated)
@@ -350,7 +358,7 @@ dataflow-depth findings are delegated to the `sast` orchestrator (semgrep/CodeQL
 |---|---|---|---|
 | Role | fast lint in the agent's inner loop | deep rule coverage | known-vulnerable dependencies |
 | Latency | ~0.2 ms/check | seconds | seconds |
-| Depth | line-level + Python taint, 97 rules | thousands of community rules | OSV databases |
+| Depth | line-level + Python taint, 131 rules | thousands of community rules | OSV databases |
 | Availability | zero deps beyond pyyaml | auto-installed in CI; graceful degrade locally with an install hint | detected per ecosystem, skipped honestly when absent |
 
 The built-in engine is intentionally shallow and never claims to replace the others —

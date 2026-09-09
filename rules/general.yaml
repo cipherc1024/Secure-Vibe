@@ -19,6 +19,10 @@
       - >-
         (?i)(sk-[A-Za-z0-9_-]{20,})
       - >-
+        (?i)(akid|aws[_-]?(secret[_-]?access[_-]?key|session[_-]?token))[^"']*[=:]\s*["'][^"']{10,}["']
+      - >-
+        ["']?(?:bearer\s+)?eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{6,}["']?
+      - >-
         -----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----
       - >-
         (?i)(ghp_[A-Za-z0-9]{36,}|gho_[A-Za-z0-9]{36,})
@@ -96,9 +100,11 @@
       - >-
         (?i)execute\s*\(\s*f["']
       - >-
-        (?i)f["'`](\s*)(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)\b
+        (?i)f["'`][^\n]*?\b(SELECT|INSERT|UPDATE|DELETE)\b[^\n]*?\{[^}\n]*?\}
       - >-
-        (?i)["'`](SELECT|INSERT|UPDATE|DELETE)\b[^"'`]*\+\s*\w+
+        (?i)["'`](SELECT|INSERT|UPDATE|DELETE)\b[^\n]*?["'`]\s*\+\s*\w+
+      - >-
+        (?i)["'`](SELECT|INSERT|UPDATE|DELETE)\b[^\n]*?["'`]\s*\.format\s*\(
       - >-
         (?i)execute\s*\([^)]*%\s*\w+
       - >-
@@ -112,6 +118,8 @@
     exclude_regex:
       - >-
         execute\s*\([^,)]*,\s*[\[\(]?\s*\w+\s*[\]\)]?\s*\)
+      - >-
+        execute\s*\([^,)]*,\s*[\[\(]
 
 
 - id: GEN-006

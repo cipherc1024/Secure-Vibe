@@ -52,14 +52,16 @@ Run against the full official `dataset.jsonl` (121 CWE-annotated samples + 121 b
 
 | Metric | Value |
 |------|------|
-| detection_rate | 38.0% (46/121 insecure samples flagged) |
+| detection_rate | 81.8% (99/121 insecure samples flagged) |
 | false_positive_rate | 0.0% (0/121 benign prompts flagged) |
-| avg_latency_ms | 1.1 |
+| avg_latency_ms | 1.4 |
 
 Honest reading: the 0% false-positive rate is the result of lexical stripping (comments/docstrings/strings never
-trigger rules). The 38% detection rate is the honest ceiling of a fast single-pass regex linter — rules requiring
-dataflow/interprocedural analysis (SSRF paths, XSS sinks, weak-crypto misuse across files) are exactly what the
-`sast` orchestrator delegates to semgrep/CodeQL. The `missed_by_cwe` tally is the direct input for adding new
+trigger rules) plus taint sanitizers (html.escape, shlex.quote, safe coercion kill the taint flow). The 81.8%
+detection rate has grown from the 38.0% baseline via taint-engine expansion (Attribute/Subscript propagation,
+new sinks) and new rules; the remaining ~20 misses are CWEs requiring interprocedural dataflow or semantic
+reasoning (SSRF via function parameters, missing-auth logic, off-by-one) — exactly what the `sast` orchestrator
+delegates to semgrep/CodeQL. The `missed_by_cwe` tally is the direct input for adding new
 rules (`tools/mine_cwe_rules.py`) or routing CWEs to the semgrep layer.
 
 ### Generic Annotated Corpora (can run even without SecurityEval)

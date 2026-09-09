@@ -15,6 +15,11 @@ case "$TARGET" in
     claude)   TARGET="$HOME/.claude/skills/secure-vibe" ;;
 esac
 
+# refuse dangerous targets (root / home) that rm -rf could destroy
+case "$TARGET" in
+    / | "" | "$HOME") echo "Secure-Vibe: refusing to install into a protected path: $TARGET" >&2; exit 1 ;;
+esac
+
 SOURCE="$(cd "$(dirname "$0")" && pwd)"
 REPO="${2:-}"   # 传入则使用 git 克隆安装（此后 cli.py update / git pull 更新）
 
@@ -40,7 +45,7 @@ echo "  目标: $TARGET"
 
 mkdir -p "$TARGET"
 
-for item in SKILL.md cli.py main.py config.yaml requirements.txt README.md VERSION core rules blacklist templates docs; do
+for item in SKILL.md cli.py main.py config.yaml requirements.txt README.md VERSION core rules blacklist templates docs hooks; do
     if [ -e "$SOURCE/$item" ]; then
         rm -rf "$TARGET/$item"
         cp -r "$SOURCE/$item" "$TARGET/$item"

@@ -133,7 +133,7 @@ except ImportError as exc:
     sys.exit(2)
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-SKILL_VERSION = "1.1.0"   # keep in sync with the VERSION file; bump on releases
+SKILL_VERSION = "1.1.1"   # keep in sync with the VERSION file; bump on releases
 
 
 def _load_config() -> dict:
@@ -289,7 +289,7 @@ def cmd_precommit(args) -> int:
     """
     if getattr(args, "install_hook", False):
         return _install_hook()
-    from core.sast import _detect_lang, _file_ignored
+    from core.sast import _detect_lang, _file_ignored, _yaml_iac_lang
     from core.validator import Validator
 
     staged = _staged_or_tracked_files(all_files=args.all)
@@ -303,6 +303,8 @@ def cmd_precommit(args) -> int:
         if not p.is_file():
             continue
         lang = _detect_lang(p)
+        if lang == "yaml-iac":
+            lang = _yaml_iac_lang(p)   # same disambiguation as `sast .`: plain yaml (incl. rule files) is not code
         if lang:
             targets.append((p, lang))
 
@@ -611,7 +613,7 @@ def cmd_selftest(args) -> int:
         checks["detects_js_eval"] = (not r_js.passed) and any(x.rule_id == "JS-001" for x in r_js.violations)
         # Go / Shell / IaC rule self-tests
         vgo = Validator(language="go")
-        r_go = vgo.validate('db.Query("SELECT * FROM t WHERE id=" + id)')
+        r_go = vgo.validate('db.Query("SELECT * FROM t WHERE id=" + id)')  # secure-vibe: ignore - attack sample for the Go self-test
         checks["detects_go_sql_concat"] = (not r_go.passed) and any(x.rule_id == "GO-002" for x in r_go.violations)
         vsh = Validator(language="sh")
         r_sh = vsh.validate('curl -s https://x.sh | sh')

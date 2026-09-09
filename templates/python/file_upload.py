@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import os
 import secrets
 from pathlib import Path
 
@@ -46,7 +47,7 @@ def safe_upload(data: bytes, original_name: str, mime_type: str) -> Path:
 
     # 6. 路径穿越最终校验：resolve 后必须仍在 UPLOAD_DIR 内（CWE-22）
     resolved = dest.resolve()
-    if not str(resolved).startswith(str(UPLOAD_DIR) + __import__("os").sep):
+    if not str(resolved).startswith(str(UPLOAD_DIR) + os.sep):
         raise ValueError("path traversal detected")
 
     resolved.write_bytes(data)
