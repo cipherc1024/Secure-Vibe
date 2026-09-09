@@ -4,6 +4,45 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.2] - 2026-09-09
+
+Evaluation-report improvements: configurable sanitizers, a new fix + rule for
+disabled TLS verification, opt-in cross-line matching, container packaging and
+contributor docs. Detection stays at **81.8%** with **0% false positives**.
+
+### Added
+
+- Configurable sanitizer allowlist: `config.yaml validator.sanitizers` (or
+  `register_sanitizers()`) merges extra sanitizer functions into the taint
+  engine; cli.py applies config values before every validate/sast run.
+- PY-054 `tls_verify_disabled` rule (CWE-295): flags
+  `requests/httpx/urllib3` calls with `verify=False`, with an
+  `exclude_regex` guard for `verify=True`.
+- 8th deterministic fix `tls_verify_false`: rewrites `verify=False` to
+  `verify=True` (all fixes re-validated after applying).
+- Opt-in cross-line matching: `match.multiline: true` runs a rule's regex
+  against the whole source with line numbers recovered from match offsets;
+  line-by-line scanning remains the default to keep false positives at 0%.
+- `Dockerfile`: one-shot deep-scan image including the optional engines
+  (semgrep, pip-audit) that native installs treat as best-effort.
+- `CONTRIBUTING.md`: rule-writing spec (ids, CWE, regex + exclusions, match
+  methods, test requirements) and the full gate for engine changes.
+- `tools/rule_stats.py`: per-file rule/blacklist counts (verifies the
+  README/docs totals, currently 118 + 13 = 131).
+
+### Changed
+
+- JSON output robustness on Windows: piped stdout emits pure-ASCII JSON
+  (`\uXXXX` escapes, valid JSON with identical data); interactive TTYs keep
+  readable UTF-8. Guards against GBK-decoding garbled text in PS 5.1 pipes.
+- `config.yaml` version synced to 1.1.2 (was 1.1.0).
+
+### Fixed
+
+- `core/taint.py`: `register_sanitizers()` raised AttributeError on the
+  frozenset allowlist (silently swallowed by config loading); the allowlist
+  is now a mutable set.
+
 ## [1.1.1] - 2026-09-09
 
 Security-focused engine expansion: SecurityEval detection **38.0% → 81.8%** at
@@ -122,6 +161,7 @@ analysis / runtime protection / ops).
   with secret masking, bilingual rule content (EN/ZH), cross-agent installers
   (install.sh / install.ps1), CI test matrix, and the MIT-licensed docs set.
 
+[1.1.2]: https://github.com/cipherc1024/Secure-Vibe/releases/tag/v1.1.2
 [1.1.1]: https://github.com/cipherc1024/Secure-Vibe/releases/tag/v1.1.1
 [1.1.0]: https://github.com/cipherc1024/Secure-Vibe/releases/tag/v1.1.0
 [1.0.0]: https://github.com/cipherc1024/Secure-Vibe/releases/tag/v1.0.0
