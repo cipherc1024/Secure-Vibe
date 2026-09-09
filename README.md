@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Languages](https://img.shields.io/badge/Languages-13-green)
-![Rules](https://img.shields.io/badge/Rules-131-orange)
+![Rules](https://img.shields.io/badge/Rules-142-orange)
 ![Tests](https://img.shields.io/badge/Tests-255-brightgreen)
 [![Release](https://img.shields.io/github/v/tag/cipherc1024/Secure-Vibe)](https://github.com/cipherc1024/Secure-Vibe/releases)
 [![CI](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml/badge.svg)](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml)
@@ -168,21 +168,21 @@ User Task ──> ① Context Builder ──> ② Generation (Agent LLM) ──>
 - ④ repair loop — deterministic AST-level fixes first (no LLM), then local/full LLM rewrites; up to 3 rounds
 - ⑤ logger — JSONL with secret masking; `cli.py missed` reports missed detections to drive rule iteration
 
-## Detection coverage (13 languages, 131 rules)
+## Detection coverage (13 languages, 142 rules)
 
 General rules shared across all languages: hardcoded secrets, SQL concatenation, plaintext HTTP,
 weak randomness/hashes, JWT without signature verification, disabled TLS verification, sensitive logs.
 
 | Language | Type | Count |
 |----------|------|-------|
-| Python | language | 22 rules (eval/os.system/pickle + SSRF/XXE/SSTI/path traversal/Zip Slip/NoSQL/ORM/JWT/CORS/open redirect/ReDoS/ML deserialization) |
+| Python | language | 43 rules (eval/os.system/pickle + SSRF/XXE/SSTI/path traversal/Zip Slip/NoSQL/ORM/JWT/CORS/open redirect/ReDoS/ML deserialization/weak crypto/JWT verify/traceback leak) |
 | C | language | 7 rules |
 | C++ | language | 2 rules (inherits all C rules) |
 | PHP | language | 7 rules (inherits HTML+JS rules) |
 | HTML | language | 5 rules (inherits JS rules) |
-| JavaScript / Node | language | 9 rules |
+| JavaScript / Node | language | 17 rules (+ tree-sitter xast for eval/string-timer/dynamic require) |
 | Go | language | 7 rules |
-| Java / Spring | language | 7 rules |
+| Java / Spring | language | 10 rules |
 | Shell | language | 5 rules |
 | Dockerfile | IaC | 5 rules |
 | Kubernetes | IaC | 5 rules |
@@ -358,7 +358,7 @@ the `sast` orchestrator (semgrep/CodeQL). See
 |---|---|---|---|
 | Role | fast lint in the agent's inner loop | deep rule coverage | known-vulnerable dependencies |
 | Latency | ~0.2 ms/check | seconds | seconds |
-| Depth | line-level + Python taint, 131 rules | thousands of community rules | OSV databases |
+| Depth | line-level + Python taint + js xast, 142 rules | thousands of community rules | OSV databases |
 | Availability | zero deps beyond pyyaml | auto-installed in CI; graceful degrade locally with an install hint | detected per ecosystem, skipped honestly when absent |
 
 The built-in engine is intentionally shallow and never claims to replace the others —

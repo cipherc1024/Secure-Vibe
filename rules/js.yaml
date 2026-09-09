@@ -12,6 +12,8 @@
         (?<![\w.$])eval\s*\(
       - >-
         new\s+Function\s*\(
+    xast:
+      call: [eval, Function]
     exclude_regex: []
 
 
@@ -53,6 +55,9 @@
     regex:
       - >-
         set(Timeout|Interval)\s*\(\s*["'`]
+    xast:
+      call: [setTimeout, setInterval]
+      arg: string-literal
     exclude_regex: []
 
 
@@ -128,5 +133,136 @@
         (?i)\brequire\s*\([^)]*(req\.(query|body|params)|\+\s*\w+|process\.argv)
       - >-
         \brequire\s*\(\s*[A-Za-z_$][\w$]*\s*\)
+    xast:
+      call: require
+      arg: dynamic
     exclude_regex: []
 
+
+
+- id: JS-010
+  name: js_sql_template_literal
+  severity: high
+  cwe: CWE-89
+  # literal_sensitive: template-string contents are blanked by strip_code, so
+  # the ${...} interpolation marker must be matched against the raw line
+  literal_sensitive: true
+  message: "SQL built with a template literal / concatenation (SQL injection risk) | 用模板字符串/拼接构造 SQL（SQL 注入风险）"
+  fix_hint: "Use parameterized queries (mysql.format / pg parameter placeholders ?) instead of interpolating user input into SQL. | 使用参数化查询（mysql.format 或 pg 的 ? 占位符），不要把用户输入插进 SQL。"
+  match:
+    regex:
+      - >-
+        (?i)\.(query|execute)\s*\(\s*`[^`]*\$\{
+      - >-
+        (?i)\b(sql|query|statement)\w*\s*=\s*`[^`]*\$\{
+    exclude_regex:
+      - >-
+        format\s*\(|sqlstring
+
+
+- id: JS-011
+  name: js_tls_reject_unauthorized
+  severity: high
+  cwe: CWE-295
+  message: "TLS certificate validation disabled (rejectUnauthorized: false allows MITM) | TLS 证书校验被禁用（rejectUnauthorized: false 可被中间人攻击）"
+  fix_hint: "Remove rejectUnauthorized: false (the default validates certificates); for self-signed test servers pin the CA bundle instead. | 删除 rejectUnauthorized: false（默认即校验证书）；自签名测试服务器应固定 CA 证书包，而不是关闭校验。"
+  match:
+    regex:
+      - >-
+        rejectUnauthorized\s*[:=]\s*false
+      - >-
+        NODE_TLS_REJECT_UNAUTHORIZED\s*[,=]\s*["']?0
+    exclude_regex: []
+
+
+- id: JS-012
+  name: js_weak_hash
+  severity: medium
+  cwe: CWE-328
+  literal_sensitive: true
+  message: "Weak hash algorithm MD5/SHA1 used (broken cryptographic hash) | 使用弱哈希算法 MD5/SHA1（已被破解的哈希）"
+  fix_hint: "Use SHA-256 or stronger (crypto.createHash('sha256')); MD5/SHA1 are broken for security purposes. | 使用 SHA-256 或更强算法（crypto.createHash('sha256')）；MD5/SHA1 已不安全。"
+  match:
+    regex:
+      - >-
+        createHash\s*\(\s*["'](md5|sha1|md4)["']
+    exclude_regex: []
+
+
+- id: JS-013
+  name: js_insecure_random_token
+  severity: medium
+  cwe: CWE-338
+  message: "Math.random used for a security-sensitive value (predictable randomness) | 用 Math.random 生成安全相关值（可预测随机数）"
+  fix_hint: "Use crypto.getRandomValues or crypto.randomBytes for tokens, nonces and secrets; Math.random is not cryptographically secure. | token/nonce/secret 用 crypto.getRandomValues 或 crypto.randomBytes；Math.random 不具备密码学安全性。"
+  match:
+    regex:
+      - >-
+        (?i)\b(token|password|secret|otp|nonce|captcha|session[_-]?id|api[_-]?key|reset[_-]?code|verify[_-]?code)\w*\s*[:=][^;\n]{0,40}Math\.random\s*\(\s*\)
+    exclude_regex:
+      - >-
+        getRandomValues|crypto\.random
+
+
+- id: JS-014
+  name: js_hardcoded_secret
+  severity: medium
+  cwe: CWE-798
+  literal_sensitive: true
+  message: "Hardcoded credential (insufficiently protected credentials) | 硬编码凭据（凭据保护不足）"
+  fix_hint: "Load credentials from environment variables (process.env) or a secrets manager; never inline them in source. | 从环境变量（process.env）或密钥管理服务读取凭据，不要写在源码里。"
+  match:
+    regex:
+      - >-
+        (?i)\b(api[_-]?key|apikey|secret|password|passwd|access[_-]?token|auth[_-]?token|private[_-]?key)\b\s*[:=]\s*["'][^"']{8,}["']
+    exclude_regex:
+      - >-
+        process\.env|typeof|\$\{|["'][x*]{3,}["']|your[_-]|example|placeholder|dummy|<[^"']*["']
+
+
+- id: JS-015
+  name: js_open_redirect
+  severity: high
+  cwe: CWE-601
+  message: "Redirect to a request-supplied URL (open redirect risk) | 重定向到请求传入的 URL（开放重定向风险）"
+  fix_hint: "Validate the target against a host whitelist before redirecting; never res.redirect(req.query.url) directly. | 重定向前按域名白名单校验目标 URL；禁止 res.redirect(req.query.url) 直接跳转。"
+  match:
+    regex:
+      - >-
+        (?i)res\.redirect\s*\([^)]*req\.(query|body|params)
+    exclude_regex:
+      - >-
+        encodeURIComponent|whitelist|allowlist|startsWith|includes
+
+
+- id: JS-016
+  name: js_fs_path_traversal
+  severity: medium
+  cwe: CWE-22
+  message: "File operation with a request-supplied path (path traversal risk) | 文件操作使用请求传入的路径（路径穿越风险）"
+  fix_hint: "Resolve the path and verify it stays inside the base directory; use path.basename on the user segment; never pass req params to fs calls directly. | 解析路径并确认仍位于基目录内；用户段用 path.basename 处理；禁止把 req 参数直接传给 fs。"
+  match:
+    regex:
+      - >-
+        (?i)\b(readFile|readFileSync|writeFile|writeFileSync|createReadStream|createWriteStream|unlink|unlinkSync|appendFile)\s*\([^)]*req\.(query|params|body)
+      - >-
+        (?i)path\.join\s*\([^)]*req\.(query|params|body)
+    exclude_regex:
+      - >-
+        path\.basename|sanitize
+
+
+- id: JS-017
+  name: js_jwt_none_alg
+  severity: high
+  cwe: CWE-347
+  literal_sensitive: true
+  message: "JWT verified with the 'none' algorithm (signature bypass risk) | JWT 使用 none 算法校验（签名绕过风险）"
+  fix_hint: "Never accept alg: none; pin the expected algorithm (e.g. algorithms: ['HS256']) when verifying. | 禁止接受 alg: none；校验时固定预期算法（如 algorithms: ['HS256']）。"
+  match:
+    regex:
+      - >-
+        (?i)algorithms?\s*:\s*\[[^\]]*["']none["']
+      - >-
+        (?i)algorithms?\s*:\s*["']none["']
+    exclude_regex: []

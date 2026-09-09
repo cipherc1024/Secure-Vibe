@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Phase 1+2 of the multi-language AST plan
+
+#### Added
+
+- js/java line-level rules: JS-010–JS-017 (SQL template literals, TLS
+  `rejectUnauthorized: false`, weak hash MD5/SHA1, `Math.random` tokens,
+  hardcoded credentials, open redirect, fs path traversal, JWT `alg: none`);
+  JAVA-008–JAVA-010 (weak hash, trust-all TrustManager/HostnameVerifier,
+  hardcoded credentials). Rules total 118 → 129 (+13 blacklist).
+- Optional tree-sitter AST engine for js/java (`core/xast.py`): rules can use
+  `match.xast` ({call, arg, arg_index}) for precise call matching
+  (JS-001 eval/new Function, JS-004 string timer, JS-009 dynamic require).
+  The engine is additive — absent locally → silent fallback to regex; ships
+  in the Docker image; java grammar lands with phase 3.
+- 12 new self-test samples (js/java); suite now 68 samples, 48/48 detected,
+  0 false positives.
+
+#### Changed
+
+- README coverage table updated (131 → 142 rules); CONTRIBUTING.md documents
+  the `xast` block; requirements.txt/Dockerfile carry the optional
+  tree-sitter dependencies.
+
 ## [1.1.2] - 2026-09-09
 
 Evaluation-report improvements: configurable sanitizers, a new fix + rule for

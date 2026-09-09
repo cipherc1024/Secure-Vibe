@@ -176,6 +176,10 @@ class Rule:
                              #   whole file, or the rule does not fire (guards against
                              #   docstrings that embed a vulnerable example verbatim)
         multiline: true      #   optional: opt-in cross-line matching (see _check_regex_multiline)
+        xast:                #   optional: tree-sitter AST constraint (js/java, core/xast)
+          call: "setTimeout" #   call name(s): full path or bare tail; str or list
+          arg: "string-literal"  # arg shape: string-literal | template-subst | dynamic | any
+          arg_index: 0       #   which argument (0-based)
     """
 
     def __init__(self, data: dict[str, Any]):
@@ -206,6 +210,13 @@ class Rule:
         # source once (line numbers recovered from match offsets). Line-by-line
         # scanning remains the default because it keeps the 0% FP baseline.
         self.multiline: bool = bool(match.get("multiline", False))
+        # optional tree-sitter AST constraint (js/java; requires core/xast):
+        #   xast: {call: "<name>" | [names], arg: "<shape>", arg_index: 0}
+        x = match.get("xast") or {}
+        raw_call = x.get("call", "")
+        self.xast_call: list[str] = [raw_call] if isinstance(raw_call, str) else list(raw_call)
+        self.xast_arg: str = str(x.get("arg", ""))
+        self.xast_arg_index: int = int(x.get("arg_index", 0))
 
 
 # ---------------------------------------------------------------------------
@@ -266,7 +277,8 @@ class Validator:
         violations: list[Violation] = []
         parse_error = ""
 
-        # Engine 1: AST analysis (Python only; non-Python skip AST/taint and use the regex engine)
+        # Engine 1: AST analysis (Python native ast; js/java via optional tree-sitter).
+        # Non-Python without xast use the regex engine only.
         tree = None
         parse_error = ""
         if self.language == "python":
@@ -279,6 +291,8 @@ class Validator:
             for rule in self.rules:
                 if rule.ast_calls or rule.ast_kwargs:
                     violations.extend(self._check_ast(tree, code, rule))
+        elif self.language in ("js", "java"):
+            violations.extend(self._check_xast(code))
 
         # Engine 2: regex blacklist (runs even when AST fails; tolerates code fragments).
         # Comments and string contents are lexically stripped first (python/js) so
@@ -389,6 +403,51 @@ class Validator:
         if isinstance(expected, str):
             return isinstance(value, ast.Constant) and value.value == expected
         return False
+
+    # -- xast engine (js/java, optional tree-sitter) --------------------------
+
+    def _check_xast(self, code: str) -> list[Violation]:
+        """tree-sitter call matching for js/java rules with a `match.xast` block.
+
+        No-op when tree-sitter/grammar is absent or no rule uses xast — the
+        regex engine remains the baseline. Never raises (parse failures return
+        no calls and the engine degrades silently).
+        """
+        from core import xast
+        if not any(rule.xast_call for rule in self.rules):
+            return []
+        calls = xast.analyze_calls(code, self.language)
+        if not calls:
+            return []
+        lines = code.splitlines()
+        found: list[Violation] = []
+        for rule in self.rules:
+            if not rule.xast_call:
+                continue
+            for c in calls:
+                if not any(xast.call_matches(t, c["name"]) for t in rule.xast_call):
+                    continue
+                if rule.xast_arg:
+                    shapes = c["shapes"]
+                    idx = rule.xast_arg_index
+                    shape = shapes[idx] if 0 <= idx < len(shapes) else ""
+                    if not xast.arg_matches(shape, rule.xast_arg):
+                        continue
+                found.append(Violation(
+                    rule_id=rule.id,
+                    rule_name=rule.name,
+                    line=c["line"],
+                    column=c["col"],
+                    snippet=lines[c["line"] - 1].strip()[:120] if 0 < c["line"] <= len(lines) else "",
+                    message=rule.message,
+                    severity=rule.severity,
+                    fix_hint=rule.fix_hint,
+                    cwe=rule.cwe,
+                    checker="xast",
+                    template=rule.template,
+                ))
+                break  # report each rule at most once per file
+        return found
 
     # -- regex engine --------------------------------------------------------
 

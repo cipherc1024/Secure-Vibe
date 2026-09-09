@@ -47,6 +47,22 @@ vulnerability:
 - Cross-line patterns: add `multiline: true` under `match` to run the regex
   against the whole source (line numbers recovered from match offsets). This is
   opt-in; the default line-by-line scan keeps false positives at 0%.
+- js/java precise call matching: add a `xast` block under `match` to use the
+  optional tree-sitter engine (core/xast.py) instead of regex:
+
+  ```yaml
+  match:
+    xast:
+      call: [setTimeout, setInterval]   # full path or bare tail; str or list
+      arg: string-literal               # optional shape of arg[arg_index]
+      arg_index: 0                      # which argument (0-based)
+  ```
+
+  arg shapes: `string-literal` (plain string / template without substitutions),
+  `template-subst` (template with `${...}` or binary `+` concatenation),
+  `dynamic` (anything not a plain literal), `any`. The engine is optional:
+  when tree-sitter + the grammar is absent, js/java rules fall back to the
+  regex engine — keep a `regex` alongside `xast` so the rule still fires.
 
 ### Test requirements
 

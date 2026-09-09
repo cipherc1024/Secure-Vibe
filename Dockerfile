@@ -15,7 +15,8 @@ COPY blacklist/ ./blacklist/
 COPY templates/ ./templates/
 COPY hooks/ ./hooks/
 
-# pyyaml is the only hard dependency; semgrep/pip-audit enable the deep engines
-RUN pip install --no-cache-dir pyyaml semgrep pip-audit
+# pyyaml is the only hard dependency; semgrep/pip-audit enable the deep engines,
+# tree-sitter (+ grammars) enables the js/java xast engine (core/xast.py)
+RUN pip install --no-cache-dir pyyaml semgrep pip-audit tree-sitter tree-sitter-javascript
 
 ENTRYPOINT ["python", "cli.py"]

@@ -106,3 +106,52 @@
         (?i)"AES/ECB/|AES"/[^"]*ECB
     exclude_regex: []
 
+
+
+- id: JAVA-008
+  name: java_weak_hash
+  severity: medium
+  cwe: CWE-328
+  literal_sensitive: true
+  message: "Weak hash algorithm MD5/SHA1 (broken cryptographic hash) | 使用弱哈希算法 MD5/SHA1（已被破解的哈希）"
+  fix_hint: "Use SHA-256 or stronger via MessageDigest.getInstance('SHA-256'); MD5/SHA1 are broken for security purposes. | 使用 SHA-256 或更强算法；MD5/SHA1 已不安全。"
+  match:
+    regex:
+      - >-
+        (?i)MessageDigest\.getInstance\s*\(\s*"(MD5|SHA-?1|MD4)"
+    exclude_regex: []
+
+
+- id: JAVA-009
+  name: java_trust_all_certs
+  severity: high
+  cwe: CWE-295
+  # multiline: the trust-all TrustManager/HostnameVerifier bodies span lines
+  match:
+    multiline: true
+    regex:
+      - >-
+        (?i)(checkServerTrusted|checkClientTrusted|verify)\s*\([^)]*\)\s*\{\s*return\s*true
+      - >-
+        (?i)new\s+X509TrustManager\s*\(\s*\)
+    exclude_regex:
+      - >-
+        return\s*false
+  message: "Trust-all TrustManager/HostnameVerifier (TLS certificate validation bypass) | 信任所有证书的 TrustManager/HostnameVerifier（TLS 校验绕过）"
+  fix_hint: "Remove the trust-all TrustManager/HostnameVerifier; use the default validator or pin the expected CA chain. | 删除信任所有证书的 TrustManager/HostnameVerifier；使用默认校验或固定 CA 链。"
+
+
+- id: JAVA-010
+  name: java_hardcoded_credentials
+  severity: medium
+  cwe: CWE-798
+  literal_sensitive: true
+  message: "Hardcoded credential (insufficiently protected credentials) | 硬编码凭据（凭据保护不足）"
+  fix_hint: "Load credentials from environment variables or a secrets manager; never inline them in source. | 从环境变量或密钥管理服务读取凭据，不要写在源码里。"
+  match:
+    regex:
+      - >-
+        (?i)\b(password|passwd|secret|api[_-]?key|access[_-]?token)\b\s*=\s*"[^"]{8,}"
+    exclude_regex:
+      - >-
+        System\.getenv|System\.getProperty|\$\{|\.{3,}|<[^">]|\*{3,}|your[_-]|example|placeholder|dummy
