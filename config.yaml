@@ -31,6 +31,9 @@ validator:
     - regex              # regex blacklist matching
     - taint              # taint data-flow analysis
   ignore_rules: []       # globally ignored rule IDs, e.g. ["GEN-004"]
+  sanitizers: []         # extra sanitizer functions merged into the taint allowlist,
+                         # e.g. ["myapp.clean"] (fully-qualified) or ["clean"] (bare tail).
+                         # Only add functions you have verified neutralize tainted values.
 
 # Repair-loop settings
 repair:
@@ -52,7 +55,7 @@ blacklist_dir: blacklist
 templates_dir: templates
 
 # Versioning and updates
-version: "1.1.0"          # keep in sync with the VERSION file
+version: "1.1.1"          # keep in sync with the VERSION file
 # Install source repo (written by the install script on git-managed installs):
 # once set, cli.py version --check can query the remote latest version and cli.py update can pull updates
 source_repo: ""           # e.g. https://github.com/yourname/secure-vibe.git

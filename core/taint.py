@@ -158,12 +158,12 @@ def _is_sink_node(node: ast.AST) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 # functions that neutralize untrusted data; taint is killed at these calls
-SANITIZERS = frozenset({
+SANITIZERS = {
     "html.escape", "cgi.escape", "markupsafe.escape", "jinja2.escape",
     "shlex.quote", "pipes.quote", "urllib.parse.quote",
     "urllib.parse.quote_plus", "re.escape", "secure_filename",
     "werkzeug.utils.secure_filename",
-})
+}
 _SANITIZER_TAILS = frozenset(s.split(".")[-1] for s in SANITIZERS)
 _SAFE_COERCIONS = frozenset({"int", "float", "bool"})
 
@@ -395,3 +395,28 @@ def find_tainted_sinks(code: str) -> list[dict[str, Any]]:
     eng = _TaintEngine(tree)
     eng.analyze()
     return eng.find_sinks()
+
+
+def register_sanitizers(names: list[str] | tuple | set) -> int:
+    """Merge user-configured sanitizer functions into the allowlist (config.yaml
+    `validator.sanitizers`). Accepts fully-qualified names ("myapp.clean") or bare
+    tails ("clean"); bare tails match any dotted path ending with them, exactly
+    like the built-in allowlist. Returns the number of names added.
+
+    Safety note: only add functions you have verified neutralize the tainted value
+    (escape/quote/parameterize). Adding a non-sanitizing function can hide real
+    vulnerabilities from the taint engine.
+    """
+    added = 0
+    global _SANITIZER_TAILS
+    for raw in names:
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        name = raw.strip()
+        if name in SANITIZERS:
+            continue
+        SANITIZERS.add(name)
+        added += 1
+    _SANITIZER_TAILS = frozenset(s.split(".")[-1] for s in SANITIZERS)
+    return added
+

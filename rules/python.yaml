@@ -697,3 +697,18 @@
     regex:
       - >-
         (?i)\bconnect\s*\([^)]*\buser\s*=\s*["'][^"']+["'][^)]*\b(passwd|password|pwd)\s*=\s*["']
+
+- id: PY-054
+  name: tls_verify_false
+  severity: high
+  cwe: CWE-295
+  message: "TLS certificate verification disabled (verify=False allows MITM) | TLS 证书校验被禁用（verify=False 可被中间人攻击）"
+  fix_hint: "Remove verify=False (the default verifies certificates); for self-signed test servers pin the CA bundle instead. | 删除 verify=False（默认即校验证书）；自签名测试服务器应固定 CA 证书包，而不是关闭校验。"
+  template: ""
+  match:
+    regex:
+      - >-
+        (?i)(requests|httpx|urllib3)\.\w+\s*\([^)]*verify\s*=\s*False
+    exclude_regex:
+      - >-
+        \bverify\s*=\s*True

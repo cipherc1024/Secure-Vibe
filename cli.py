@@ -21,7 +21,7 @@ Subcommands:
 Contract:
     - validate: exit 0=pass  1=violations found  2=error
     - sast/precommit: exit 0=clean  1=findings at the fail-on severity  2=error
-    - every JSON output goes to stdout (ensure_ascii=False, UTF-8)
+    - every JSON output goes to stdout (ensure_ascii=_JSON_ASCII, UTF-8)
 """
 from __future__ import annotations
 
@@ -41,6 +41,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
+
+# JSON output robustness on Windows: when stdout is piped, the consumer may decode
+# bytes with any codepage (PS 5.1 uses GBK) and garble non-ASCII text. Machine
+# consumers therefore get pure-ASCII JSON (\uXXXX escapes, still valid JSON with
+# identical data); interactive TTYs keep readable UTF-8 Chinese.
+_JSON_ASCII = not (sys.stdout.isatty() if hasattr(sys.stdout, "isatty") else False)
 
 
 def _candidate_interpreters() -> list[str]:
@@ -120,7 +126,7 @@ def _bootstrap_failure(exc: Exception) -> None:
         "current_interpreter": me,
         "fixes": fixes,
         "after_install": "run: python cli.py selftest  to verify",
-    }, ensure_ascii=False, indent=1))
+    }, ensure_ascii=_JSON_ASCII, indent=1))
 
 
 try:
@@ -141,6 +147,24 @@ def _load_config() -> dict:
     if p.is_file():
         return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
     return {}
+
+
+def _apply_config_sanitizers() -> int:
+    """Merge user-configured sanitizers (config.yaml `validator.sanitizers`) into
+    the taint engine's allowlist. Called before validator runs. Returns count added."""
+    try:
+        from core.taint import register_sanitizers
+    except ImportError:
+        return 0
+    extra = (_load_config().get("validator") or {}).get("sanitizers") or []
+    if isinstance(extra, str):
+        extra = [x for x in (s.strip() for s in extra.split(",")) if x]
+    if not extra:
+        return 0
+    try:
+        return register_sanitizers(extra)
+    except Exception:
+        return 0
 
 
 def _logger() -> SecureLogger:
@@ -177,7 +201,7 @@ def cmd_context(args) -> int:
             "no more than 3 retries; when done run `python cli.py log` to record."
         ),
     }
-    print(json.dumps(out, ensure_ascii=False, indent=1))
+    print(json.dumps(out, ensure_ascii=_JSON_ASCII, indent=1))
     return 0
 
 
@@ -199,16 +223,17 @@ def _digest(system_prompt: str) -> str:
 
 def cmd_validate(args) -> int:
     """Validate code. exit 0=pass 1=violations 2=error. Attaches repair instructions on violations."""
+    _apply_config_sanitizers()
     if args.file:
         path = Path(args.file)
         if not path.is_file():
-            print(json.dumps({"ok": False, "error": f"file not found: {path}"}, ensure_ascii=False))
+            print(json.dumps({"ok": False, "error": f"file not found: {path}"}, ensure_ascii=_JSON_ASCII))
             return 2
         code = path.read_text(encoding="utf-8", errors="replace")
     elif args.code:
         code = args.code
     else:
-        print(json.dumps({"ok": False, "error": "--file or --code is required"}, ensure_ascii=False))
+        print(json.dumps({"ok": False, "error": "--file or --code is required"}, ensure_ascii=_JSON_ASCII))
         return 2
 
     ignore = [r for r in (args.ignore or "").split(",") if r]
@@ -230,7 +255,7 @@ def cmd_validate(args) -> int:
             f"then re-validate; retry at most 3 times; if round 3 still fails, stop and "
             f"mark [needs human review] in your reply."
         )
-    print(json.dumps(out, ensure_ascii=False, indent=1))
+    print(json.dumps(out, ensure_ascii=_JSON_ASCII, indent=1))
     # syntax errors -> exit 2 (SKILL.md contract: fix syntax first, re-validate; no repair loop);
     # prevents unparsable code from entering the log flow as exit 0/passed
     if result.error:
@@ -246,9 +271,10 @@ def cmd_sast(args) -> int:
     """Scan a whole directory: builtin rules (always) + semgrep + dependency scanners (best-effort)."""
     from core.sast import run_sast
 
+    _apply_config_sanitizers()
     target = Path(args.path)
     if not target.is_dir():
-        print(json.dumps({"ok": False, "error": f"directory not found: {target}"}, ensure_ascii=False))
+        print(json.dumps({"ok": False, "error": f"directory not found: {target}"}, ensure_ascii=_JSON_ASCII))
         return 2
 
     result = run_sast(target, run_semgrep_flag=not args.no_semgrep,
@@ -273,7 +299,7 @@ def cmd_sast(args) -> int:
             f"{len(blocking)} finding(s) at fail-on={args.fail_on} severity. "
             f"Fix per fix_hint (semgrep findings include suggested fixes), re-run sast until passed."
         )
-    print(json.dumps(out, ensure_ascii=False, indent=1))
+    print(json.dumps(out, ensure_ascii=_JSON_ASCII, indent=1))
     return 0 if out["passed"] else 1
 
 
@@ -294,7 +320,7 @@ def cmd_precommit(args) -> int:
 
     staged = _staged_or_tracked_files(all_files=args.all)
     if staged is None:
-        print(json.dumps({"ok": False, "error": "not a git repository (no .git here)"}, ensure_ascii=False))
+        print(json.dumps({"ok": False, "error": "not a git repository (no .git here)"}, ensure_ascii=_JSON_ASCII))
         return 2
 
     targets = []
@@ -310,7 +336,7 @@ def cmd_precommit(args) -> int:
 
     if not targets:
         print(json.dumps({"ok": True, "passed": True, "checked": 0,
-                          "note": "no staged code files to validate"}, ensure_ascii=False))
+                          "note": "no staged code files to validate"}, ensure_ascii=_JSON_ASCII))
         return 0
 
     validators: dict[str, Validator] = {}
@@ -349,7 +375,7 @@ def cmd_precommit(args) -> int:
             "Fix the findings, or commit with --no-verify to skip the hook "
             "(the CI gate still runs the same checks on push)."
         )
-    print(json.dumps(out, ensure_ascii=False, indent=1))
+    print(json.dumps(out, ensure_ascii=_JSON_ASCII, indent=1))
     return 0 if out["passed"] else 1
 
 
@@ -371,7 +397,7 @@ def _install_hook() -> int:
     git_dir = subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True,
                              text=True, timeout=15)
     if git_dir.returncode != 0:
-        print(json.dumps({"ok": False, "error": "not a git repository"}, ensure_ascii=False))
+        print(json.dumps({"ok": False, "error": "not a git repository"}, ensure_ascii=_JSON_ASCII))
         return 2
     hooks_dir = Path(git_dir.stdout.strip()) / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
@@ -386,10 +412,10 @@ def _install_hook() -> int:
                 "ok": False,
                 "error": f"a different pre-commit hook already exists: {target}",
                 "note": "merge it manually or wire secure-vibe into .pre-commit-config.yaml",
-            }, ensure_ascii=False))
+            }, ensure_ascii=_JSON_ASCII))
             return 1
     if not src.is_file():
-        print(json.dumps({"ok": False, "error": f"hook template missing: {src}"}, ensure_ascii=False))
+        print(json.dumps({"ok": False, "error": f"hook template missing: {src}"}, ensure_ascii=_JSON_ASCII))
         return 2
     target.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
     try:
@@ -397,7 +423,7 @@ def _install_hook() -> int:
     except OSError:
         pass
     print(json.dumps({"ok": True, "installed": str(target),
-                      "note": "staged files are validated before every commit; skip with --no-verify"}, ensure_ascii=False))
+                      "note": "staged files are validated before every commit; skip with --no-verify"}, ensure_ascii=_JSON_ASCII))
     return 0
 
 
@@ -413,7 +439,7 @@ def cmd_log(args) -> int:
         if p.is_file():
             code = p.read_text(encoding="utf-8", errors="replace")
         else:
-            print(json.dumps({"ok": False, "error": f"file not found: {p}"}, ensure_ascii=False))
+            print(json.dumps({"ok": False, "error": f"file not found: {p}"}, ensure_ascii=_JSON_ASCII))
             return 2
 
     diff = ""
@@ -442,7 +468,7 @@ def cmd_log(args) -> int:
         manually_modified=bool(diff),
         manual_diff=diff,
     )
-    print(json.dumps({"ok": True, "logged": str(path)}, ensure_ascii=False))
+    print(json.dumps({"ok": True, "logged": str(path)}, ensure_ascii=_JSON_ASCII))
     return 0
 
 
@@ -457,7 +483,7 @@ def cmd_missed(args) -> int:
         severity=args.severity)
     print(json.dumps({"ok": True, "logged": str(path),
                       "note": "pattern recorded as pending_review; it will be written to rules/*.yaml after human review"},
-                     ensure_ascii=False))
+                     ensure_ascii=_JSON_ASCII))
     return 0
 
 
@@ -470,17 +496,17 @@ def cmd_cwe(args) -> int:
     ref_path = PROJECT_ROOT / "rules" / "cwe_reference.yaml"
     if not ref_path.is_file():
         print(json.dumps({"ok": False, "error": "cwe_reference.yaml missing; run tools/mine_cwe_rules.py first"},
-                         ensure_ascii=False))
+                         ensure_ascii=_JSON_ASCII))
         return 2
     data = yaml.safe_load(ref_path.read_text(encoding="utf-8")) or {}
     entries = data.get("cwe", [])
     if args.id:
         hits = [e for e in entries if e.get("id", "").upper() == args.id.upper()]
-        print(json.dumps({"ok": True, "query": args.id, "results": hits}, ensure_ascii=False, indent=1))
+        print(json.dumps({"ok": True, "query": args.id, "results": hits}, ensure_ascii=_JSON_ASCII, indent=1))
         return 0 if hits else 1
     print(json.dumps({"ok": True, "count": len(entries),
                       "top": [{"id": e["id"], "name": e.get("name", "")} for e in entries[:20]]},
-                     ensure_ascii=False, indent=1))
+                     ensure_ascii=_JSON_ASCII, indent=1))
     return 0
 
 
@@ -513,7 +539,7 @@ def cmd_version(args) -> int:
         except Exception as exc:
             out["ok"] = False
             out["error"] = f"failed to query the remote version: {exc}"
-    print(json.dumps(out, ensure_ascii=False, indent=1))
+    print(json.dumps(out, ensure_ascii=_JSON_ASCII, indent=1))
     return 0 if out.get("ok") else 2
 
 
@@ -530,7 +556,7 @@ def cmd_update(args) -> int:
             "error": "current install is not git-managed (no .git). To update: re-run install.ps1/install.sh "
                      "(idempotent copy-over = update), or reinstall as git-managed using the install script's "
                      "-Repo/--repo argument (then cli.py update does one-click updates)",
-        }, ensure_ascii=False, indent=1))
+        }, ensure_ascii=_JSON_ASCII, indent=1))
         return 1
 
     repo = args.repo
@@ -544,7 +570,7 @@ def cmd_update(args) -> int:
         except Exception:
             repo = ""
     if not repo:
-        print(json.dumps({"ok": False, "error": "no remote repo found; specify with --repo <url>"}, ensure_ascii=False))
+        print(json.dumps({"ok": False, "error": "no remote repo found; specify with --repo <url>"}, ensure_ascii=_JSON_ASCII))
         return 2
 
     before = _installed_version()
@@ -564,7 +590,7 @@ def cmd_update(args) -> int:
         "version_after": after,
         "updated": before != after,
         "output": output[:1000],
-    }, ensure_ascii=False, indent=1))
+    }, ensure_ascii=_JSON_ASCII, indent=1))
     return 0 if success else 1
 
 
@@ -672,10 +698,10 @@ def cmd_selftest(args) -> int:
                   checks["detects_gha_injection"],
                   checks["log_writable"],
                   not suite["missed"] and not suite["false_positives"]])
-        print(json.dumps({"ok": ok, "checks": checks}, ensure_ascii=False, indent=1))
+        print(json.dumps({"ok": ok, "checks": checks}, ensure_ascii=_JSON_ASCII, indent=1))
         return 0 if ok else 1
     except Exception as exc:
-        print(json.dumps({"ok": False, "error": str(exc), "checks": checks}, ensure_ascii=False))
+        print(json.dumps({"ok": False, "error": str(exc), "checks": checks}, ensure_ascii=_JSON_ASCII))
         return 2
 
 

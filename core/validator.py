@@ -175,6 +175,7 @@ class Rule:
       require_regex: [...]   #   optional: every pattern here must match somewhere in the
                              #   whole file, or the rule does not fire (guards against
                              #   docstrings that embed a vulnerable example verbatim)
+        multiline: true      #   optional: opt-in cross-line matching (see _check_regex_multiline)
     """
 
     def __init__(self, data: dict[str, Any]):
@@ -201,6 +202,10 @@ class Rule:
         self.exclude: list[re.Pattern[str]] = [
             re.compile(p) for p in match.get("exclude_regex", [])
         ]
+        # opt-in cross-line matching: when true, patterns run against the whole
+        # source once (line numbers recovered from match offsets). Line-by-line
+        # scanning remains the default because it keeps the 0% FP baseline.
+        self.multiline: bool = bool(match.get("multiline", False))
 
 
 # ---------------------------------------------------------------------------
@@ -398,6 +403,8 @@ class Validator:
         whole = "\n".join(src_lines)
         if rule.require and not all(p.search(whole) for p in rule.require):
             return []
+        if rule.multiline:
+            return self._check_regex_multiline(rule, whole, src_lines, raw_lines, use_strip)
         found: list[Violation] = []
         for lineno, text in enumerate(src_lines, 1):
             stripped_line = text.strip()
@@ -432,6 +439,43 @@ class Validator:
                         )
                     )
                     break  # report each rule at most once per line
+        return found
+
+    def _check_regex_multiline(
+        self, rule: Rule, whole: str, src_lines: list[str], raw_lines: list[str], use_strip: bool
+    ) -> list[Violation]:
+        """Opt-in cross-line scan (rule.multiline: true): patterns run against the
+        whole source once; line numbers are recovered from match offsets. The same
+        suppression rules as the line scan apply (secure-vibe: ignore, comments,
+        exclude_regex on the line the match ENDS on)."""
+        found: list[Violation] = []
+        for pattern in rule.patterns:
+            for m in pattern.finditer(whole):
+                end_line = whole.count("\n", 0, m.end())
+                raw_line = raw_lines[end_line] if 0 <= end_line < len(raw_lines) else ""
+                if "secure-vibe: ignore" in raw_line and "ignore-file" not in raw_line:
+                    continue
+                if not use_strip and raw_line.strip().startswith(("#", "//", "/*", "*")):
+                    continue
+                if any(p.search(raw_line.strip()) for p in rule.exclude):
+                    continue
+                snippet = raw_line.strip()[:120] or m.group(0).strip()[:120]
+                found.append(
+                    Violation(
+                        rule_id=rule.id,
+                        rule_name=rule.name,
+                        line=end_line + 1,
+                        column=m.start(),
+                        snippet=snippet,
+                        message=rule.message,
+                        severity=rule.severity,
+                        fix_hint=rule.fix_hint,
+                        cwe=rule.cwe,
+                        checker="regex-multiline",
+                        template=rule.template,
+                    )
+                )
+                break  # report each rule at most once per pattern
         return found
 
     # -- taint analysis ------------------------------------------------------

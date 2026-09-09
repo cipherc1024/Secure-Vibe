@@ -100,7 +100,19 @@ class _SecureTransformer(ast.NodeTransformer):
                         node.keywords = [k for k in node.keywords if k.arg != "shell"]
                         self.applied.add("subprocess_shell_true")
 
-        # 5) cursor.execute("... %s" % x) -> cursor.execute("... %s", (x,))
+        # 5) requests.get(..., verify=False) -> verify=True (restore TLS cert check)
+        if "tls_verify_false" in self.rules and isinstance(node.func, ast.Attribute):
+            func = node.func
+            if isinstance(func.value, ast.Name) and func.value.id == "requests":
+                changed = False
+                for kw in node.keywords:
+                    if kw.arg == "verify" and isinstance(kw.value, ast.Constant) and kw.value.value is False:
+                        kw.value = ast.Constant(True)
+                        changed = True
+                if changed:
+                    self.applied.add("tls_verify_false")
+
+        # 6) cursor.execute("... %s" % x) -> cursor.execute("... %s", (x,))
         if "sql_string_concat" in self.rules and node.args:
             tail = self._call_tail(node.func)
             if tail == "execute":
@@ -248,7 +260,7 @@ def deterministic_fix(code: str, violations: list[Any]) -> tuple[str, list[str]]
 
     rules = {v.rule_name for v in violations if isinstance(v, Violation)}
     fixable = rules & {"insecure_random", "weak_hash", "unsafe_yaml_load", "hardcoded_secret",
-                       "subprocess_shell_true", "sql_string_concat", "PY-048",
+                       "subprocess_shell_true", "sql_string_concat", "tls_verify_false", "PY-048",
                        "path_traversal_user_path"}
     if not fixable:
         return code, []
