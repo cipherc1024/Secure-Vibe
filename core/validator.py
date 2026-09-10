@@ -242,6 +242,10 @@ class Validator:
     ):
         self.language = normalize_language(language)
         self.taint_analysis = taint_analysis and self.language == "python"
+        # js/java cross-statement taint-lite (core/taint_ml.py, phase 3):
+        # runs only when tree-sitter + the grammar are importable; silent
+        # degrade to the regex baseline otherwise
+        self.ml_taint = taint_analysis and self.language in ("js", "java")
         rules_dir = Path(rules_dir) if rules_dir else PROJECT_ROOT / "rules"
         blacklist_dir = Path(blacklist_dir) if blacklist_dir else PROJECT_ROOT / "blacklist"
         ignore_rules = ignore_rules or []
@@ -306,6 +310,8 @@ class Validator:
         # Engine 3: lightweight taint analysis (Python only, when parseable) — confirms user input reaching dangerous sinks
         if self.taint_analysis and tree is not None:
             violations = self._merge_taint(tree, code, violations)
+        if self.ml_taint:
+            violations = self._merge_ml_taint(code, violations)
 
         # cross-engine dedupe: at most one violation per (rule_id, line);
         # AST/taint hits (appended before regex where taint did not upgrade) win
@@ -565,6 +571,44 @@ class Validator:
         taint_keys = {(v.rule_id, v.line) for v in taint_violations}
         kept = [v for v in violations if (v.rule_id, v.line) not in taint_keys]
         return kept + taint_violations
+
+    def _merge_ml_taint(self, code: str, violations: list[Violation]) -> list[Violation]:
+        """js/java cross-statement taint-lite (core/taint_ml.py).
+
+        No-op when tree-sitter/the grammar is absent or no flow is found.
+        Taint conclusions replace shallow regex/xast hits on the same
+        (rule_id, line); message/severity/hints come from the rule itself.
+        """
+        from core import taint_ml
+        findings = taint_ml.analyze(code, self.language)
+        if not findings:
+            return violations
+        rules = {r.id: r for r in self.rules}
+        lines = code.splitlines()
+        ml_violations: list[Violation] = []
+        for f in findings:
+            rule = rules.get(f["rule_id"])
+            if rule is None:
+                continue
+            raw = lines[f["line"] - 1].strip() if 0 < f["line"] <= len(lines) else ""
+            if "secure-vibe: ignore" in raw and "ignore-file" not in raw:
+                continue
+            ml_violations.append(Violation(
+                rule_id=rule.id,
+                rule_name=rule.name,
+                line=f["line"],
+                column=f["col"],
+                snippet=raw[:120],
+                message=f"{rule.message} | taint chain: {f['chain']}",
+                severity=rule.severity,
+                fix_hint=rule.fix_hint,
+                cwe=rule.cwe,
+                checker="taint",
+                template=rule.template,
+            ))
+        taint_keys = {(v.rule_id, v.line) for v in ml_violations}
+        kept = [v for v in violations if (v.rule_id, v.line) not in taint_keys]
+        return kept + ml_violations
 
     # -- utilities -----------------------------------------------------------
 

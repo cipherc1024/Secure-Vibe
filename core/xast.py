@@ -27,6 +27,7 @@ _GRAMMARS: dict[str, str] = {
 
 _langs: dict[str, Any] = {}
 _load_error: str = ""
+_parsers: dict[str, Any] = {}
 
 
 def _supported_languages() -> dict[str, Any]:
@@ -148,16 +149,32 @@ def analyze_calls(code: str, language: str) -> list[dict[str, Any]]:
     Returns [] when tree-sitter/the grammar is unavailable or the code does
     not parse — callers fall back to the regex engine, never an error.
     """
+    root = parse(code, language)
+    if root is None:
+        return []
+    if language == "js":
+        return _collect_js_calls(root)
+    return []  # other languages: no call collector wired yet
+
+
+def parse(code: str, language: str):
+    """Parse code with the cached tree-sitter parser for the language.
+
+    Returns the root node, or None when the grammar is unavailable or the
+    code does not parse — never raises.
+    """
     langs = _supported_languages()
-    if language == "js" and "js" in langs:
-        from tree_sitter import Parser
-        try:
-            parser = Parser(langs["js"])
-            tree = parser.parse(code.encode("utf-8"))
-        except Exception:
-            return []
-        return _collect_js_calls(tree.root_node)
-    return []  # java/other: no grammar wired yet (phase 3)
+    if language not in langs:
+        return None
+    from tree_sitter import Parser
+    parser = _parsers.get(language)
+    if parser is None:
+        parser = Parser(langs[language])
+        _parsers[language] = parser
+    try:
+        return parser.parse(code.encode("utf-8")).root_node
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------

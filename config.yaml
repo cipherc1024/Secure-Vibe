@@ -25,7 +25,7 @@ llm:
 # Validator settings
 validator:
   max_time_ms: 50        # max time allowed for one validation (ms; logs a warning when exceeded)
-  taint_analysis: true   # lightweight taint analysis (Python only): confirms user input reaching dangerous sinks
+  taint_analysis: true   # taint data-flow: Python + js/java cross-statement taint-lite (js/java need optional tree-sitter)
   enabled_checkers:      # empty means all enabled
     - ast                # AST dangerous-call analysis
     - regex              # regex blacklist matching

@@ -83,6 +83,9 @@ vulnerability:
 - `core/validator.py` — checkers, rule loading, suppression (`secure-vibe: ignore`).
 - `core/taint.py` — lightweight Python taint analysis; sanitizer allowlist is
   extendable via `config.yaml validator.sanitizers` or `register_sanitizers()`.
+- `core/taint_ml.py` — js/java cross-statement taint-lite (phase 3); source/sink/
+  sanitizer tables per language; requires optional tree-sitter.
+- `core/xast.py` — optional tree-sitter engine (js/java grammars, cached parsers).
 - `core/ast_fixer.py` — deterministic rewrites; a rule name must be listed in
   `deterministic_fix`'s fixable set before its fixer runs.
 - `cli.py` — CLI surface, config loading (`_apply_config_sanitizers`,

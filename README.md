@@ -383,13 +383,13 @@ The built-in engine is intentionally shallow and never claims to replace the oth
 
 - Rust / Ruby / Swift rule sets
 - Multi-file & inter-module taint (moving past one code block)
-- Node/Java-specific AST engines (today `java`/`js` run on the regex engine)
+- Node/Java AST engines (js: tree-sitter precise call matching; java: cross-statement taint-lite — both need optional tree-sitter; C/Go/Shell run on regex)
 - Sanitizer modeling to cut known false positives
 
 ## Known limits
 
-- The regex engine is **line-level**; cross-line data flow is covered by the taint engine (Python only) or blacklist patterns.
-- Sanitizers are not modeled (sound over-approximation: flagging a sanitized value is possible).
+- The regex engine is **line-level**; cross-line data flow is covered by the taint engines (Python full; js/java cross-statement via optional tree-sitter) or blacklist patterns.
+- Sanitizers are modeled as fixed allowlists (Python + js escape/encode helpers), not proven safe.
 - **No interprocedural analysis, no runtime protection, no deployment/ops checks** — a passing
   gate means "no known violation of the built-in rules", nothing more.
 - Other languages (Rust/Ruby/Swift) fall back to general rules only.

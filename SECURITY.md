@@ -2,8 +2,8 @@
 
 Secure-Vibe is a **secure-at-generation** assistant tool: it injects security rules before the AI Agent writes code,
 then validates in milliseconds afterwards and loops to repair. It cannot 100% replace manual security review — what it
-provides is a high-confidence guardrail; in particular, the regex engine performs **line-level** detection, and complete
-taint analysis currently covers only Python.
+provides is a high-confidence guardrail; in particular, the regex engine performs **line-level** detection, complete
+taint analysis covers Python, and js/java get a cross-statement taint-lite when tree-sitter is installed.
 
 ## Supported Versions
 

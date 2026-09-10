@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 3: js/java cross-statement taint-lite
+
+- `core/taint_ml.py`: statement-ordered taint map per function scope on top of
+  tree-sitter. Sources — js `req.query/body/params/cookies`, `process.argv`,
+  `location.*`; java `*request.getParameter/getParameterValues/getHeader`.
+  Sinks — js `child_process exec/execSync`, `res.send/end/write`,
+  `res.redirect`, `fs.*` file ops, `*.query/execute`; java
+  `Runtime.getRuntime().exec`, `new ProcessBuilder`, JDBC
+  `executeQuery/executeUpdate/execute`. Sanitizer allowlists
+  (encodeURIComponent/escapeHtml/…, Jsoup.clean/…) kill taint; reassignment
+  clears it; each function body is its own scope. Findings carry the
+  provenance chain (source → var → sink) and replace shallow regex hits on the
+  same (rule_id, line).
+- `core/xast.py`: cached `parse(code, language)` entry for the js+java
+  grammars; tree-sitter-javascript service: function bodies are
+  `statement_block` (not `block`).
+- 18 new tests (`tests/test_taint_ml.py`): cross-statement js/java flows,
+  sanitizer kills, reassignment clears, scope isolation, template
+  0-FP re-check, degradation when tree-sitter is absent.
+
 ### Phase 1+2 of the multi-language AST plan
 
 #### Added
