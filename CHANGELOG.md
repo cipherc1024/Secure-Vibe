@@ -4,7 +4,12 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.3] - 2026-09-10
+
+Multi-language AST plan (phases 1–3) complete: 11 new js/java line rules,
+an optional tree-sitter call engine, and cross-statement taint for js/java.
+Rules **118 → 129** (+13 blacklists); selftest suite 68 samples, 48/48
+detected at **0% false positives**.
 
 ### Phase 3: js/java cross-statement taint-lite
 
@@ -206,6 +211,7 @@ analysis / runtime protection / ops).
   with secret masking, bilingual rule content (EN/ZH), cross-agent installers
   (install.sh / install.ps1), CI test matrix, and the MIT-licensed docs set.
 
+[1.1.3]: https://github.com/cipherc1024/Secure-Vibe/releases/tag/v1.1.3
 [1.1.2]: https://github.com/cipherc1024/Secure-Vibe/releases/tag/v1.1.2
 [1.1.1]: https://github.com/cipherc1024/Secure-Vibe/releases/tag/v1.1.1
 [1.1.0]: https://github.com/cipherc1024/Secure-Vibe/releases/tag/v1.1.0
