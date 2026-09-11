@@ -598,6 +598,54 @@ def cmd_update(args) -> int:
 # subcommand: selftest
 # ---------------------------------------------------------------------------
 
+def _run_generated_suite() -> dict:
+    """Run the generated variant suite (tests/generated_samples.json) when present.
+
+    Returns {ok, total, should_flag, detected, missed, false_positives, note}.
+    Missing file is tolerated (selftest stays usable in trimmed installs).
+    """
+    g_path = PROJECT_ROOT / "tests" / "generated_samples.json"
+    if not g_path.is_file():
+        return {"ok": True, "total": 0, "should_flag": 0, "detected": 0,
+                "missed": [], "false_positives": [],
+                "note": "generated_samples.json absent (tools/gen_samples.py not run)"}
+    data = json.loads(g_path.read_text(encoding="utf-8"))
+    validators: dict = {}
+    detected = 0
+    missed: list = []
+    false_positives: list = []
+    should_flag = 0
+    for s in data.get("samples", []):
+        lang = s["language"]
+        v = validators.get(lang)
+        if v is None:
+            v = Validator(language=lang)
+            validators[lang] = v
+        r = v.validate(s["code"])
+        rule_id = s["note"].split(":", 1)[0]
+        if s["should_flag"]:
+            should_flag += 1
+            fired = {x.rule_id for x in r.violations}
+            if rule_id in fired:
+                detected += 1
+            else:
+                missed.append({"note": s["note"], "code": s["code"][:60]})
+        elif r.violations:
+            false_positives.append({
+                "note": s["note"], "code": s["code"][:60],
+                "rules": [x.rule_id for x in r.violations][:4],
+            })
+    return {
+        "ok": not missed and not false_positives,
+        "total": len(data.get("samples", [])),
+        "should_flag": should_flag,
+        "detected": detected,
+        "missed": missed[:5],
+        "false_positives": false_positives[:5],
+        "note": "generated variant suite (tools/gen_samples.py, committed artifact)",
+    }
+
+
 def cmd_selftest(args) -> int:
     """Self-test: rule loading, validator, log writability. For post-install verification."""
     checks = {}
@@ -686,6 +734,8 @@ def cmd_selftest(args) -> int:
             "fp_detail": suite["false_positives"][:5],
             "note": "small self-test suite (自测小样本), not an authoritative benchmark",
         }
+        # generated variant suite (tests/generated_samples.json, tools/gen_samples.py)
+        checks["generated_suite"] = _run_generated_suite()
         ok = all([checks["rules_loaded"] > 0, checks["detects_eval"],
                   checks["safe_code_passes"], checks["detects_c_sprintf"],
                   checks["c_safe_passes"], checks["detects_cpp_strcpy"],
@@ -694,10 +744,11 @@ def cmd_selftest(args) -> int:
                   checks["detects_go_sql_concat"], checks["detects_sh_curl_pipe"],
                   checks["detects_docker_root"], checks["detects_tf_open_cidr"],
                   checks["detects_py_ssrf"], checks["detects_py_ml_deser"],
-                  checks["detects_java_exec"], checks["detects_node_exec"],
-                  checks["detects_gha_injection"],
-                  checks["log_writable"],
-                  not suite["missed"] and not suite["false_positives"]])
+                   checks["detects_java_exec"], checks["detects_node_exec"],
+                   checks["detects_gha_injection"],
+                   checks["log_writable"],
+                   checks["generated_suite"]["ok"],
+                   not suite["missed"] and not suite["false_positives"]])
         print(json.dumps({"ok": ok, "checks": checks}, ensure_ascii=_JSON_ASCII, indent=1))
         return 0 if ok else 1
     except Exception as exc:

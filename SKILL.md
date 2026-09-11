@@ -140,7 +140,7 @@ Task: "Write a FastAPI endpoint that queries orders by username (SQLite)"
 | `cwe --id CWE-89` | Query CWE reference knowledge | 0 / 1 |
 | `version [--check <url>]` | Show installed version / compare with remote latest | 0 |
 | `update` | Update the skill (git pull + self-test on git-managed installs) | 0 / 1 |
-| `selftest` | Install self-test (+ 56-sample positive/negative suite) | 0 / 1 |
+| `selftest` | Install self-test (+ 68-sample curated suite + 2378 generated variants) | 0 / 1 |
 
 ## Commit gate (mechanism, not exhortation)
 

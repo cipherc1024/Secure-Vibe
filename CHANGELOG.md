@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Test corpus: 68 -> 2446 runtime auto-tests
+
+- `tools/gen_bases.py`: hand-authored, empirically verified base samples for all
+  153 rule IDs (129 rules + 13 blacklists + 11 taint-only IDs); each positive
+  triggers its target rule, each negative produces zero violations.
+- `tools/verify_bases.py`: verification harness (153/153 enforced; `DEAD_RULES`
+  tolerates the one rule whose regex depends on stripped string contents).
+- `tools/gen_samples.py`: deterministic variant expansion (comment noise,
+  function wrapping, blank lines, identifier renames, quote flips, trailing
+  lines, duplication, indentation, end-of-line comments) with empirical
+  self-filtering; yields `tests/generated_samples.json` (**2378 samples**:
+  1112 positives / 1266 negatives, 0 unfaithful negatives).
+- `cli.py selftest` now runs the generated suite alongside the curated suite;
+  `tests/test_generated_samples.py` pins the artifact (min volume, byte-for-byte
+  regeneration, all samples faithful).
+- SecurityEval re-run on the official `dataset.jsonl` confirms
+  **detection 81.8% / false positives 0.0% / ~1.28 ms** (report in
+  `logs/evaluation_report.json`).
+
 ## [1.1.3] - 2026-09-10
 
 Multi-language AST plan (phases 1–3) complete: 11 new js/java line rules,

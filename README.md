@@ -8,7 +8,7 @@
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Languages](https://img.shields.io/badge/Languages-13-green)
 ![Rules](https://img.shields.io/badge/Rules-142-orange)
-![Tests](https://img.shields.io/badge/Tests-284-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-288-brightgreen)
 [![Release](https://img.shields.io/github/v/tag/cipherc1024/Secure-Vibe)](https://github.com/cipherc1024/Secure-Vibe/releases)
 [![CI](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml/badge.svg)](https://github.com/cipherc1024/Secure-Vibe/actions/workflows/ci.yml)
 
@@ -337,10 +337,12 @@ print(v.validate('std::strcpy(dst, src);').summary())
 ## Tests
 
 ```bash
-python -m pytest tests/ -q          # unit + integration (255: validation/repair/taint/log/AST-fix + all languages)
-python cli.py selftest              # post-install self-test + 56-sample positive/negative suite
+python -m pytest tests/ -q          # unit + integration (288: validation/repair/taint/log/AST-fix + all languages)
+python cli.py selftest              # post-install self-test + 68-sample curated suite + 2378 generated variants
 python tools/agent_e2e_check.py     # offline agent-toolchain E2E
 python tools/benchmark.py           # local benchmark (detection 1.0 / FPR 0.0 / ~0.2ms)
+python tools/verify_bases.py        # re-verify all 153 rule bases (positives trigger / negatives clean)
+python tools/gen_samples.py         # deterministic variant expansion -> tests/generated_samples.json
 ```
 
 Numbers above come from the built-in sample suite (自测小样本, small self-test). On the

@@ -17,7 +17,12 @@ python tools/run_evaluation.py --local   # equivalent; outputs evaluation_report
 
 - `tests/test_validator.py`: per-rule test cases across the three engines (AST + regex + taint)
 - `tests/test_repair_loop.py`: repair loop convergence, log completeness, Mock end-to-end
-- Self-test: `python cli.py selftest`
+- Self-test: `python cli.py selftest` (curated 68-sample suite + generated variant suite)
+- Rule bases: `python tools/verify_bases.py` — all 153 rule IDs have an empirically verified
+  positive/negative base (positives trigger the target rule, negatives are 0-violation)
+- Variant suite: `python tools/gen_samples.py` — deterministic expansion of the bases into
+  `tests/generated_samples.json` (2378 faithful samples); `tests/test_generated_samples.py`
+  pins the artifact (minimum volume, byte-for-byte regeneration, all samples faithful)
 
 ## Professional Evaluation (SecurityEval, requires downloading the dataset)
 
@@ -54,7 +59,7 @@ Run against the full official `dataset.jsonl` (121 CWE-annotated samples + 121 b
 |------|------|
 | detection_rate | 81.8% (99/121 insecure samples flagged) |
 | false_positive_rate | 0.0% (0/121 benign prompts flagged) |
-| avg_latency_ms | 1.4 |
+| avg_latency_ms | 1.28 |
 
 Honest reading: the 0% false-positive rate is the result of lexical stripping (comments/docstrings/strings never
 trigger rules) plus taint sanitizers (html.escape, shlex.quote, safe coercion kill the taint flow). The 81.8%
